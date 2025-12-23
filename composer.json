@@ -28,7 +28,8 @@
     "autoload": {
         "psr-4": {
             "Pimelo\\": "src/"
-        }
+        },
+        "classmap": ["config/"]
     },
     "replace": {
         "symfony/polyfill-ctype": "*",

@@ -1,9 +1,9 @@
 <?php
 
-use Pimelo\Kernel;
+declare(strict_types=1);
 
-require_once dirname(__DIR__).'/vendor/autoload_runtime.php';
+require_once dirname(__DIR__).'/app/autoload_runtime.php';
 
-return function (array $context) {
-    return new Kernel($context['APP_ENV'], (bool) $context['APP_DEBUG']);
-};
+$kernel = require_once dirname(__DIR__).'/app/kernel.php';
+
+return static fn (array $context) => $kernel($context);
