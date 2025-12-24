@@ -1,0 +1,21 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Pimelo\Core\Store\Domain\Repository;
+
+use Pimelo\Core\Store\Domain\Entity\Store;
+
+interface StoreRepositoryInterface
+{
+    /**
+     * @return Store[]
+     */
+    public function findAll(): array;
+
+    public function findById(int $id): ?Store;
+
+    public function save(Store $store): void;
+
+    public function delete(Store $store): void;
+}
