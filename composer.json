@@ -16,6 +16,10 @@
         "symfony/runtime": "7.4.*",
         "symfony/yaml": "7.4.*"
     },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.92",
+        "phpstan/phpstan": "^2.1"
+    },
     "config": {
         "allow-plugins": {
             "php-http/discovery": true,
@@ -43,6 +47,8 @@
         "symfony/polyfill-php83": "*"
     },
     "scripts": {
+        "analyse": "phpstan analyse",
+        "format": "php-cs-fixer fix --allow-risky=yes",
         "auto-scripts": {
             "cache:clear": "symfony-cmd",
             "assets:install %PUBLIC_DIR%": "symfony-cmd"
