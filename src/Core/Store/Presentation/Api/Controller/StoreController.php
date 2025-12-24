@@ -6,13 +6,14 @@ namespace Pimelo\Core\Store\Presentation\Api\Controller;
 
 use Pimelo\Core\Store\Domain\Entity\Store;
 use Pimelo\Core\Store\Domain\Repository\StoreRepositoryInterface;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Pimelo\Core\Store\Presentation\Api\Request\Store\CreateStoreRequest;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route(path: '/api/v1/stores', name: 'app.api.v1.stores.', format: 'json', stateless: true)]
-class StoreController extends AbstractController
+class StoreController
 {
     public function __construct(
         private readonly StoreRepositoryInterface $storeRepository,
@@ -46,14 +47,28 @@ class StoreController extends AbstractController
     }
 
     #[Route(path: '', name: 'create', methods: ['POST'])]
-    public function create(): JsonResponse
-    {
-        return new JsonResponse(['store' => null], JsonResponse::HTTP_CREATED);
+    public function create(
+        #[MapRequestPayload] CreateStoreRequest $request,
+    ): JsonResponse {
+        $store = new Store();
+        $store->setTitle($request->getTitle());
+        $this->storeRepository->save($store);
+
+        return new JsonResponse(['stores' => [[
+            'id' => $store->getId(),
+            'title' => $store->getTitle(),
+        ]]], JsonResponse::HTTP_CREATED);
     }
 
     #[Route(path: '/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(): JsonResponse
+    public function delete(string $id): JsonResponse
     {
+        $store = $this->storeRepository->findById((int) $id);
+
+        if ($store) {
+            $this->storeRepository->delete($store);
+        }
+
         return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
     }
 }

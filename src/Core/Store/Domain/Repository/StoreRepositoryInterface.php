@@ -15,7 +15,7 @@ interface StoreRepositoryInterface
 
     public function findById(int $id): ?Store;
 
-    public function save(Store $store): void;
+    public function save(Store $store): Store;
 
     public function delete(Store $store): void;
 }

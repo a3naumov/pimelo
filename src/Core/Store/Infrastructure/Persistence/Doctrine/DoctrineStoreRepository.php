@@ -29,11 +29,13 @@ class DoctrineStoreRepository extends ServiceEntityRepository implements StoreRe
         return $this->find($id);
     }
 
-    public function save(Store $store): void
+    public function save(Store $store): Store
     {
         $entityManager = $this->getEntityManager();
         $entityManager->persist($store);
         $entityManager->flush();
+
+        return $store;
     }
 
     public function delete(Store $store): void
