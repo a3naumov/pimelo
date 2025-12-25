@@ -1096,6 +1096,7 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
  *     framework?: FrameworkConfig,
  *     doctrine?: DoctrineConfig,
  *     doctrine_migrations?: DoctrineMigrationsConfig,
+ *     maker?: MakerConfig,
  *     monolog?: MonologConfig,
  *     "when@dev"?: array{
  *         imports?: ImportsConfig,
@@ -1105,24 +1106,6 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
  *         doctrine?: DoctrineConfig,
  *         doctrine_migrations?: DoctrineMigrationsConfig,
  *         maker?: MakerConfig,
- *         monolog?: MonologConfig,
- *     },
- *     "when@prod"?: array{
- *         imports?: ImportsConfig,
- *         parameters?: ParametersConfig,
- *         services?: ServicesConfig,
- *         framework?: FrameworkConfig,
- *         doctrine?: DoctrineConfig,
- *         doctrine_migrations?: DoctrineMigrationsConfig,
- *         monolog?: MonologConfig,
- *     },
- *     "when@test"?: array{
- *         imports?: ImportsConfig,
- *         parameters?: ParametersConfig,
- *         services?: ServicesConfig,
- *         framework?: FrameworkConfig,
- *         doctrine?: DoctrineConfig,
- *         doctrine_migrations?: DoctrineMigrationsConfig,
  *         monolog?: MonologConfig,
  *     },
  *     ...<string, ExtensionType|array{ // extra keys must follow the when@%env% pattern or match an extension alias
@@ -1205,8 +1188,6 @@ namespace Symfony\Component\Routing\Loader\Configurator;
  * }
  * @psalm-type RoutesConfig = array{
  *     "when@dev"?: array<string, RouteConfig|ImportConfig|AliasConfig>,
- *     "when@prod"?: array<string, RouteConfig|ImportConfig|AliasConfig>,
- *     "when@test"?: array<string, RouteConfig|ImportConfig|AliasConfig>,
  *     ...<string, RouteConfig|ImportConfig|AliasConfig>
  * }
  */

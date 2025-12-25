@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Store\Presentation\Api\Controller;
 
+use Pimelo\Core\Store\Application\Service\StoreService;
+use Pimelo\Core\Store\Application\UseCase\Command\Store\CreateStoreCommand\CreateStoreCommand;
+use Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStoreCommand\DeleteStoreCommand;
+use Pimelo\Core\Store\Application\UseCase\Query\Store\GetAllStoresQuery\GetAllStoresQuery;
+use Pimelo\Core\Store\Application\UseCase\Query\Store\GetStoreByIdQuery\GetStoreByIdQuery;
 use Pimelo\Core\Store\Domain\Entity\Store;
-use Pimelo\Core\Store\Domain\Repository\StoreRepositoryInterface;
 use Pimelo\Core\Store\Presentation\Api\Request\Store\CreateStoreRequest;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -16,7 +20,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class StoreController
 {
     public function __construct(
-        private readonly StoreRepositoryInterface $storeRepository,
+        private readonly StoreService $storeService,
     ) {
     }
 
@@ -27,14 +31,14 @@ class StoreController
             'stores' => array_map(static fn (Store $store) => [
                 'id' => $store->getId(),
                 'title' => $store->getTitle(),
-            ], $this->storeRepository->findAll()),
+            ], $this->storeService->getAllStores(new GetAllStoresQuery())),
         ]);
     }
 
     #[Route(path: '/{id}', name: 'get', methods: ['GET'])]
     public function get(string $id): JsonResponse
     {
-        $store = $this->storeRepository->findById((int) $id);
+        $store = $this->storeService->findStoreById(new GetStoreByIdQuery((int) $id));
 
         if (!$store) {
             throw new NotFoundHttpException('Store not found');
@@ -50,24 +54,19 @@ class StoreController
     public function create(
         #[MapRequestPayload] CreateStoreRequest $request,
     ): JsonResponse {
-        $store = new Store();
-        $store->setTitle($request->getTitle());
-        $this->storeRepository->save($store);
+        $this->storeService->createStore(new CreateStoreCommand(
+            title: $request->getTitle(),
+        ));
 
-        return new JsonResponse(['stores' => [[
-            'id' => $store->getId(),
-            'title' => $store->getTitle(),
-        ]]], JsonResponse::HTTP_CREATED);
+        return new JsonResponse(null, JsonResponse::HTTP_CREATED);
     }
 
     #[Route(path: '/{id}', name: 'delete', methods: ['DELETE'])]
     public function delete(string $id): JsonResponse
     {
-        $store = $this->storeRepository->findById((int) $id);
-
-        if ($store) {
-            $this->storeRepository->delete($store);
-        }
+        $this->storeService->deleteStore(new DeleteStoreCommand(
+            storeId: (int) $id,
+        ));
 
         return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
     }
