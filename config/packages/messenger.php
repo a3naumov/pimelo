@@ -6,6 +6,7 @@ return App::config([
     'framework' => [
         'messenger' => [
             'transports' => [
+                'amqp' => '%env(MESSENGER_AMQP_TRANSPORT_DSN)%',
                 'sync' => 'sync://',
             ],
 
