@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Pimelo\Core\Store\Infrastructure\MessageBus;
+namespace Pimelo\Shared\Messaging\MessageBus;
 
-use Pimelo\Core\Store\Application\Contract\MessageBus\CommandBusInterface;
+use Pimelo\Shared\Messaging\Message\CommandMessageInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 class CommandBus implements CommandBusInterface
@@ -14,7 +14,7 @@ class CommandBus implements CommandBusInterface
     ) {
     }
 
-    public function dispatch(object $command): void
+    public function dispatch(CommandMessageInterface $command): void
     {
         $this->commandBus->dispatch($command);
     }

@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Store\Application\UseCase\Query\Store\GetStoreByIdQuery;
 
-use Symfony\Component\Messenger\Attribute\AsMessage;
+use Pimelo\Shared\Messaging\Message\QueryMessageInterface;
 
-#[AsMessage(transport: 'sync')]
-class GetStoreByIdQuery
+class GetStoreByIdQuery implements QueryMessageInterface
 {
     public function __construct(
         private readonly int $storeId,

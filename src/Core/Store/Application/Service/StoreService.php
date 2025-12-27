@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Store\Application\Service;
 
-use Pimelo\Core\Store\Application\Contract\MessageBus\CommandBusInterface;
-use Pimelo\Core\Store\Application\Contract\MessageBus\QueryBusInterface;
 use Pimelo\Core\Store\Application\UseCase\Command\Store\CreateStoreCommand\CreateStoreCommand;
 use Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStoreCommand\DeleteStoreCommand;
 use Pimelo\Core\Store\Application\UseCase\Query\Store\GetAllStoresQuery\GetAllStoresQuery;
 use Pimelo\Core\Store\Application\UseCase\Query\Store\GetStoreByIdQuery\GetStoreByIdQuery;
 use Pimelo\Core\Store\Domain\Entity\Store;
+use Pimelo\Shared\Messaging\MessageBus\CommandBusInterface;
+use Pimelo\Shared\Messaging\MessageBus\QueryBusInterface;
 
 class StoreService
 {

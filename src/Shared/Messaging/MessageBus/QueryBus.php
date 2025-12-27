@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Pimelo\Core\Store\Infrastructure\MessageBus;
+namespace Pimelo\Shared\Messaging\MessageBus;
 
-use Pimelo\Core\Store\Application\Contract\MessageBus\QueryBusInterface;
+use Pimelo\Shared\Messaging\Message\QueryMessageInterface;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -18,7 +18,7 @@ class QueryBus implements QueryBusInterface
         $this->messageBus = $queryBus;
     }
 
-    public function query(object $query): mixed
+    public function query(QueryMessageInterface $query): mixed
     {
         return $this->handle($query);
     }

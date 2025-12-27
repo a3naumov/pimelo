@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStoreCommand;
 
-use Symfony\Component\Messenger\Attribute\AsMessage;
+use Pimelo\Shared\Messaging\Message\CommandMessageInterface;
 
-#[AsMessage(transport: 'amqp')]
-class DeleteStoreCommand
+class DeleteStoreCommand implements CommandMessageInterface
 {
     public function __construct(
         private readonly int $storeId,
