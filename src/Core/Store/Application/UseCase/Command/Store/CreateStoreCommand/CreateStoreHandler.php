@@ -6,7 +6,6 @@ namespace Pimelo\Core\Store\Application\UseCase\Command\Store\CreateStoreCommand
 
 use Pimelo\Core\Store\Domain\Entity\Store;
 use Pimelo\Core\Store\Domain\Repository\StoreRepositoryInterface;
-use Pimelo\Shared\Messaging\Message\CommandMessageInterface;
 use Pimelo\Shared\Messaging\MessageHandler\CommandMessageHandlerInterface;
 
 class CreateStoreHandler implements CommandMessageHandlerInterface
@@ -16,10 +15,7 @@ class CreateStoreHandler implements CommandMessageHandlerInterface
     ) {
     }
 
-    /**
-     * @param CreateStoreCommand $command
-     */
-    public function __invoke(CommandMessageInterface $command): void
+    public function __invoke(CreateStoreCommand $command): void
     {
         $store = new Store();
         $store->setTitle($command->getTitle());

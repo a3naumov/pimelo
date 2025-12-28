@@ -25,12 +25,18 @@ class StoreService
      */
     public function getAllStores(GetAllStoresQuery $query): array
     {
-        return $this->queryBus->query($query);
+        /** @var Store[] $stores */
+        $stores = $this->queryBus->query($query);
+
+        return $stores;
     }
 
     public function findStoreById(GetStoreByIdQuery $query): ?Store
     {
-        return $this->queryBus->query($query);
+        /** @var Store|null $store */
+        $store = $this->queryBus->query($query);
+
+        return $store;
     }
 
     public function createStore(CreateStoreCommand $command): void

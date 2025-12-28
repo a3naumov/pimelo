@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStoreCommand;
 
 use Pimelo\Core\Store\Domain\Repository\StoreRepositoryInterface;
-use Pimelo\Shared\Messaging\Message\CommandMessageInterface;
 use Pimelo\Shared\Messaging\MessageHandler\CommandMessageHandlerInterface;
 
 class DeleteStoreHandler implements CommandMessageHandlerInterface
@@ -15,10 +14,7 @@ class DeleteStoreHandler implements CommandMessageHandlerInterface
     ) {
     }
 
-    /**
-     * @param DeleteStoreCommand $command
-     */
-    public function __invoke(CommandMessageInterface $command): void
+    public function __invoke(DeleteStoreCommand $command): void
     {
         $store = $this->storeRepository->findById($command->getStoreId());
 
