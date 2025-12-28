@@ -643,7 +643,7 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
  *         }>,
  *     },
  *     uid?: bool|array{ // Uid configuration
- *         enabled?: bool, // Default: false
+ *         enabled?: bool, // Default: true
  *         default_uuid_version?: 7|6|4|1, // Default: 7
  *         name_based_uuid_version?: 5|3, // Default: 5
  *         name_based_uuid_namespace?: scalar|null,
@@ -1089,6 +1089,34 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
  *         },
  *     }>,
  * }
+ * @psalm-type NelmioCorsConfig = array{
+ *     defaults?: array{
+ *         allow_credentials?: bool, // Default: false
+ *         allow_origin?: list<scalar|null>,
+ *         allow_headers?: list<scalar|null>,
+ *         allow_methods?: list<scalar|null>,
+ *         allow_private_network?: bool, // Default: false
+ *         expose_headers?: list<scalar|null>,
+ *         max_age?: scalar|null, // Default: 0
+ *         hosts?: list<scalar|null>,
+ *         origin_regex?: bool, // Default: false
+ *         forced_allow_origin_value?: scalar|null, // Default: null
+ *         skip_same_as_origin?: bool, // Default: true
+ *     },
+ *     paths?: array<string, array{ // Default: []
+ *         allow_credentials?: bool,
+ *         allow_origin?: list<scalar|null>,
+ *         allow_headers?: list<scalar|null>,
+ *         allow_methods?: list<scalar|null>,
+ *         allow_private_network?: bool,
+ *         expose_headers?: list<scalar|null>,
+ *         max_age?: scalar|null, // Default: 0
+ *         hosts?: list<scalar|null>,
+ *         origin_regex?: bool,
+ *         forced_allow_origin_value?: scalar|null, // Default: null
+ *         skip_same_as_origin?: bool,
+ *     }>,
+ * }
  * @psalm-type ConfigType = array{
  *     imports?: ImportsConfig,
  *     parameters?: ParametersConfig,
@@ -1098,6 +1126,7 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
  *     doctrine_migrations?: DoctrineMigrationsConfig,
  *     maker?: MakerConfig,
  *     monolog?: MonologConfig,
+ *     nelmio_cors?: NelmioCorsConfig,
  *     "when@dev"?: array{
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
@@ -1107,6 +1136,7 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
  *         doctrine_migrations?: DoctrineMigrationsConfig,
  *         maker?: MakerConfig,
  *         monolog?: MonologConfig,
+ *         nelmio_cors?: NelmioCorsConfig,
  *     },
  *     ...<string, ExtensionType|array{ // extra keys must follow the when@%env% pattern or match an extension alias
  *         imports?: ImportsConfig,
