@@ -9,11 +9,11 @@ use Pimelo\Shared\Messaging\Message\CommandMessageInterface;
 class DeleteStoreCommand implements CommandMessageInterface
 {
     public function __construct(
-        private readonly int $storeId,
+        private readonly string $storeId,
     ) {
     }
 
-    public function getStoreId(): int
+    public function getStoreId(): string
     {
         return $this->storeId;
     }

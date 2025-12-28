@@ -11,9 +11,9 @@ interface StoreRepositoryInterface
     /**
      * @return Store[]
      */
-    public function findAll(): array;
+    public function all(): array;
 
-    public function findById(int $id): ?Store;
+    public function findById(string $id): ?Store;
 
     public function save(Store $store): Store;
 

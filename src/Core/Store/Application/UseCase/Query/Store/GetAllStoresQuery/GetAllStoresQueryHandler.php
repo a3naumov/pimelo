@@ -20,6 +20,6 @@ class GetAllStoresQueryHandler implements QueryMessageHandlerInterface
      */
     public function __invoke(GetAllStoresQuery $query): array
     {
-        return $this->storeRepository->findAll();
+        return $this->storeRepository->all();
     }
 }
