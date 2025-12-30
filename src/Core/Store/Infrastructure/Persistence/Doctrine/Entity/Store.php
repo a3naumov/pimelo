@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Store\Infrastructure\Persistence\Doctrine\Entity;
 
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Pimelo\Core\Store\Infrastructure\Persistence\Doctrine\Repository\DoctrineStoreRepository;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -24,7 +25,7 @@ class Store
 
     #[ORM\Column(
         name: 'title',
-        type: 'string',
+        type: Types::STRING,
         length: 255,
     )]
     private string $title;

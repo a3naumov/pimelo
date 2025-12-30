@@ -1,0 +1,11 @@
+<?php
+
+namespace Symfony\Component\DependencyInjection\Loader\Configurator;
+
+return App::config([
+    'lexik_jwt_authentication' => [
+        'secret_key' => '%env(resolve:JWT_SECRET_KEY)%',
+        'public_key' => '%env(resolve:JWT_PUBLIC_KEY)%',
+        'pass_phrase' => '%env(JWT_PASSPHRASE)%',
+    ],
+]);
