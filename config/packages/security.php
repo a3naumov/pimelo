@@ -14,10 +14,18 @@ return App::config([
                 ],
             ],
         ],
+
         'firewalls' => [
             'main' => [
-                'lazy' => true,
-                'provider' => 'app_user_provider',
+                'stateless' => true,
+                'jwt' => [],
+            ],
+        ],
+
+        'access_control' => [
+            [
+                'path' => '^/',
+                'roles' => 'IS_AUTHENTICATED_FULLY',
             ],
         ],
     ],
