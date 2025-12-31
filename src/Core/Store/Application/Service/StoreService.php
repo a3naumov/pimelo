@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Store\Application\Service;
 
-use Pimelo\Core\Store\Application\UseCase\Command\Store\CreateStoreCommand\CreateStoreCommand;
-use Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStoreCommand\DeleteStoreCommand;
-use Pimelo\Core\Store\Application\UseCase\Query\Store\GetAllStoresQuery\GetAllStoresQuery;
-use Pimelo\Core\Store\Application\UseCase\Query\Store\GetStoreByIdQuery\GetStoreByIdQuery;
+use Pimelo\Core\Store\Application\UseCase\Command\Store\CreateStore\CreateStoreCommand;
+use Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStore\DeleteStoreCommand;
+use Pimelo\Core\Store\Application\UseCase\Query\Store\GetAllStores\GetAllStoresQuery;
+use Pimelo\Core\Store\Application\UseCase\Query\Store\GetStoreById\GetStoreByIdQuery;
 use Pimelo\Core\Store\Domain\Entity\Store;
 use Pimelo\Core\Store\Presentation\Api\Request\Store\CreateStoreRequest;
 use Pimelo\Shared\Identity\IDGeneratorInterface;

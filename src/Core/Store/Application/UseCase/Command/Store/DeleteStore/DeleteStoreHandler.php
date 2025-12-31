@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStoreCommand;
+namespace Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStore;
 
 use Pimelo\Core\Store\Domain\Repository\StoreRepositoryInterface;
 use Pimelo\Shared\Messaging\MessageHandler\CommandMessageHandlerInterface;

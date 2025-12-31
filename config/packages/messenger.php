@@ -14,7 +14,7 @@ return App::config([
             ],
 
             'routing' => [
-                CommandMessageInterface::class => 'async',
+                CommandMessageInterface::class => 'sync',
                 QueryMessageInterface::class => 'sync',
             ],
 

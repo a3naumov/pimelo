@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pimelo\Core\Store\Application\UseCase\Command\Store\CreateStoreCommand;
+namespace Pimelo\Core\Store\Application\UseCase\Command\Store\CreateStore;
 
 use Pimelo\Core\Store\Domain\Entity\Store;
 use Pimelo\Core\Store\Domain\Repository\StoreRepositoryInterface;

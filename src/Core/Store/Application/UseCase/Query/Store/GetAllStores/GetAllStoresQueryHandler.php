@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pimelo\Core\Store\Application\UseCase\Query\Store\GetAllStoresQuery;
+namespace Pimelo\Core\Store\Application\UseCase\Query\Store\GetAllStores;
 
 use Pimelo\Core\Store\Domain\Entity\Store;
 use Pimelo\Core\Store\Domain\Repository\StoreRepositoryInterface;

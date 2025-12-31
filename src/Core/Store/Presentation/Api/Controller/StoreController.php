@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Pimelo\Core\Store\Presentation\Api\Controller;
 
 use Pimelo\Core\Store\Application\Service\StoreService;
-use Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStoreCommand\DeleteStoreCommand;
-use Pimelo\Core\Store\Application\UseCase\Query\Store\GetAllStoresQuery\GetAllStoresQuery;
-use Pimelo\Core\Store\Application\UseCase\Query\Store\GetStoreByIdQuery\GetStoreByIdQuery;
+use Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStore\DeleteStoreCommand;
+use Pimelo\Core\Store\Application\UseCase\Query\Store\GetAllStores\GetAllStoresQuery;
+use Pimelo\Core\Store\Application\UseCase\Query\Store\GetStoreById\GetStoreByIdQuery;
 use Pimelo\Core\Store\Domain\Entity\Store;
 use Pimelo\Core\Store\Presentation\Api\Request\Store\CreateStoreRequest;
 use Pimelo\Core\Store\Presentation\Api\Resource\StoreResource;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pimelo\Core\Store\Application\UseCase\Command\Store\CreateStoreCommand;
+namespace Pimelo\Core\Store\Application\UseCase\Command\Store\CreateStore;
 
 use Pimelo\Shared\Identity\ID;
 use Pimelo\Shared\Messaging\Message\CommandMessageInterface;

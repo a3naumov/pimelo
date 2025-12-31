@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Pimelo\Shared\Messaging\MessageBus;
+namespace Pimelo\Shared\Messaging\Adapter\Symfony\MessageBus;
 
 use Pimelo\Shared\Messaging\Message\QueryMessageInterface;
+use Pimelo\Shared\Messaging\MessageBus\QueryBusInterface;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-class QueryBus implements QueryBusInterface
+class SymfonyMessengerQueryBus implements QueryBusInterface
 {
     use HandleTrait;
 

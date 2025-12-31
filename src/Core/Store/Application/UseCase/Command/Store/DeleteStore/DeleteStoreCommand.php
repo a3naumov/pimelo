@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Pimelo\Core\Store\Application\UseCase\Query\Store\GetStoreByIdQuery;
+namespace Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStore;
 
-use Pimelo\Shared\Messaging\Message\QueryMessageInterface;
+use Pimelo\Shared\Messaging\Message\CommandMessageInterface;
 
-class GetStoreByIdQuery implements QueryMessageInterface
+class DeleteStoreCommand implements CommandMessageInterface
 {
     public function __construct(
         private readonly string $storeId,
