@@ -21,24 +21,24 @@ return App::config([
         ],
 
         'firewalls' => [
-            'login' => [
-                'pattern' => '^/api/v1/auth/login',
+            'main' => [
                 'stateless' => true,
+                'entry_point' => 'jwt',
                 'json_login' => [
                     'check_path' => '/api/v1/auth/login',
                     'success_handler' => 'lexik_jwt_authentication.handler.authentication_success',
                     'failure_handler' => 'lexik_jwt_authentication.handler.authentication_failure',
                 ],
-            ],
-            'main' => [
-                'stateless' => true,
                 'jwt' => [],
+                'refresh_jwt' => [
+                    'check_path' => '/api/v1/auth/refresh-token',
+                ],
             ],
         ],
 
         'access_control' => [
             [
-                'path' => '^/api/v1/auth/login',
+                'path' => '^/api/v1/auth/(login|refresh-token)',
                 'roles' => 'PUBLIC_ACCESS',
             ],
             [

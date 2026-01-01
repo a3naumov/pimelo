@@ -15,6 +15,7 @@ return App::config([
             'server_version' => '18',
         ],
         'orm' => [
+            'auto_mapping' => true,
             'mappings' => [
                 'Pimelo' => [
                     'type' => 'attribute',
