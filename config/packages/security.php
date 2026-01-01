@@ -21,6 +21,15 @@ return App::config([
         ],
 
         'firewalls' => [
+            'login' => [
+                'pattern' => '^/api/v1/auth/login',
+                'stateless' => true,
+                'json_login' => [
+                    'check_path' => '/api/v1/auth/login',
+                    'success_handler' => 'lexik_jwt_authentication.handler.authentication_success',
+                    'failure_handler' => 'lexik_jwt_authentication.handler.authentication_failure',
+                ],
+            ],
             'main' => [
                 'stateless' => true,
                 'jwt' => [],
@@ -28,6 +37,10 @@ return App::config([
         ],
 
         'access_control' => [
+            [
+                'path' => '^/api/v1/auth/login',
+                'roles' => 'PUBLIC_ACCESS',
+            ],
             [
                 'path' => '^/api/v1/customers/register',
                 'roles' => 'PUBLIC_ACCESS',

@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route(path: '/api/v1/customers', name: 'app.api.v1.customers.', format: 'json', stateless: true)]
+#[Route(path: '/api/v1/customers', name: 'app.api.v1.customer.', format: 'json', stateless: true)]
 class CustomerController
 {
     public function __construct(

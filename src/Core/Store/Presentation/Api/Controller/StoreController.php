@@ -16,7 +16,7 @@ use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route(path: '/api/v1/stores', name: 'app.api.v1.stores.', format: 'json', stateless: true)]
+#[Route(path: '/api/v1/stores', name: 'app.api.v1.store.', format: 'json', stateless: true)]
 class StoreController
 {
     public function __construct(
