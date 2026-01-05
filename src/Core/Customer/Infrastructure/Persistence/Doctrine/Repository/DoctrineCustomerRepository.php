@@ -10,6 +10,7 @@ use Pimelo\Core\Customer\Domain\Entity\Customer;
 use Pimelo\Core\Customer\Domain\Repository\CustomerRepositoryInterface;
 use Pimelo\Core\Customer\Infrastructure\Persistence\Doctrine\Entity\Customer as DoctrineCustomer;
 use Pimelo\Core\Customer\Infrastructure\Persistence\Doctrine\Mapper\CustomerMapper;
+use Pimelo\Shared\Auth\AuthenticationUserInterface;
 
 /**
  * @extends ServiceEntityRepository<DoctrineCustomer>
@@ -28,6 +29,13 @@ class DoctrineCustomerRepository extends ServiceEntityRepository implements Cust
         return $this->count(['email' => $email]) > 0;
     }
 
+    public function getById(string $id): ?Customer
+    {
+        $doctrineCustomer = $this->find($id);
+
+        return $doctrineCustomer ? $this->customerMapper->toDomain($doctrineCustomer) : null;
+    }
+
     public function getByEmail(string $email): ?Customer
     {
         $doctrineCustomer = $this->findOneBy(['email' => $email]);
@@ -44,5 +52,11 @@ class DoctrineCustomerRepository extends ServiceEntityRepository implements Cust
         $entityManager->flush();
 
         return $this->customerMapper->toDomain($storeEntity);
+    }
+
+    public function getForAuthenticationUser(AuthenticationUserInterface $user): Customer
+    {
+        return $this->getByEmail($user->getUserIdentifier())
+            ?? throw new \RuntimeException(sprintf('Customer with id %s not found for authentication user.', $user->getUserIdentifier()));
     }
 }

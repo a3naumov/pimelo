@@ -14,7 +14,7 @@ class CustomerMapper
     {
         return new Customer(
             id: $customer->getId()->toString(),
-            email: $customer->getUserIdentifier(),
+            email: $customer->getEmail(),
             password: $customer->getPassword(),
         );
     }

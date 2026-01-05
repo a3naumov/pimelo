@@ -7,6 +7,7 @@ namespace Pimelo\Core\Customer\Infrastructure\Persistence\Doctrine\Entity;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Pimelo\Core\Customer\Infrastructure\Persistence\Doctrine\Repository\DoctrineCustomerRepository;
+use Pimelo\Shared\Auth\AuthenticationUserInterface;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -15,7 +16,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(repositoryClass: DoctrineCustomerRepository::class)]
 #[ORM\Table(name: 'customer')]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
-class Customer implements UserInterface, PasswordAuthenticatedUserInterface
+class Customer implements UserInterface, PasswordAuthenticatedUserInterface, AuthenticationUserInterface
 {
     #[ORM\Id]
     #[ORM\Column(
@@ -74,7 +75,7 @@ class Customer implements UserInterface, PasswordAuthenticatedUserInterface
         return ['ROLE_USER'];
     }
 
-    #[\Deprecated('since Symfony 8.0, use getUserIdentifier instead')]
+    #[\Deprecated('to be removed when upgrading to Symfony 8')]
     public function eraseCredentials(): void
     {
         // @deprecated, to be removed when upgrading to Symfony 8

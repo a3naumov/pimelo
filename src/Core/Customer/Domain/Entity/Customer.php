@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Customer\Domain\Entity;
 
-use Pimelo\Shared\Auth\AuthenticationUserInterface;
 use Pimelo\Shared\Identity\ID;
 
-class Customer implements AuthenticationUserInterface
+class Customer
 {
     public function __construct(
         private readonly ID $id,
@@ -29,10 +28,5 @@ class Customer implements AuthenticationUserInterface
     public function getPassword(): string
     {
         return $this->password;
-    }
-
-    public function getUserIdentifier(): string
-    {
-        return $this->email;
     }
 }
