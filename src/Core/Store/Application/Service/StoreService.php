@@ -9,7 +9,6 @@ use Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStore\DeleteStoreC
 use Pimelo\Core\Store\Application\UseCase\Query\Store\GetAllStores\GetAllStoresQuery;
 use Pimelo\Core\Store\Application\UseCase\Query\Store\GetStoreById\GetStoreByIdQuery;
 use Pimelo\Core\Store\Domain\Entity\Store;
-use Pimelo\Core\Store\Presentation\Api\Request\Store\CreateStoreRequest;
 use Pimelo\Shared\Identity\IDGeneratorInterface;
 use Pimelo\Shared\Messaging\MessageBus\CommandBusInterface;
 use Pimelo\Shared\Messaging\MessageBus\QueryBusInterface;
@@ -42,12 +41,12 @@ class StoreService
         return $store;
     }
 
-    public function createStore(CreateStoreRequest $request): string
+    public function createStore(string $title): string
     {
         $id = $this->idGenerator->generate();
         $command = new CreateStoreCommand(
             id: $id,
-            title: $request->getTitle(),
+            title: $title,
         );
 
         $this->commandBus->dispatch($command);

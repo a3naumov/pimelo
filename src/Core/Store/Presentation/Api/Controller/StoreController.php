@@ -51,7 +51,7 @@ class StoreController
     public function create(
         #[MapRequestPayload] CreateStoreRequest $request,
     ): JsonResponse {
-        $id = $this->storeService->createStore($request);
+        $id = $this->storeService->createStore($request->getTitle());
 
         return new JsonResponse(['id' => $id], JsonResponse::HTTP_CREATED);
     }
