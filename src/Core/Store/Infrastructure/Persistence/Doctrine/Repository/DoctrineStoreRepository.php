@@ -10,6 +10,8 @@ use Pimelo\Core\Store\Domain\Entity\Store;
 use Pimelo\Core\Store\Domain\Repository\StoreRepositoryInterface;
 use Pimelo\Core\Store\Infrastructure\Persistence\Doctrine\Entity\Store as DoctrineStore;
 use Pimelo\Core\Store\Infrastructure\Persistence\Doctrine\Mapper\StoreMapper;
+use Pimelo\Shared\Identity\ID;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * @extends ServiceEntityRepository<DoctrineStore>
@@ -31,9 +33,13 @@ class DoctrineStoreRepository extends ServiceEntityRepository implements StoreRe
         );
     }
 
-    public function findById(string $id): ?Store
+    public function findById(ID $id): ?Store
     {
-        $store = $this->find($id);
+        if (!Uuid::isValid($id->toString())) {
+            return null;
+        }
+
+        $store = $this->find($id->toString());
 
         return $store ? $this->storeMapper->toDomain($store) : null;
     }
@@ -53,7 +59,7 @@ class DoctrineStoreRepository extends ServiceEntityRepository implements StoreRe
     {
         $entityManager = $this->getEntityManager();
 
-        if ($storeEntity = $this->find($store->getId())) {
+        if ($storeEntity = $this->find($store->getId()->toString())) {
             $entityManager->remove($storeEntity);
             $entityManager->flush();
         }

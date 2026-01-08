@@ -11,6 +11,8 @@ use Pimelo\Core\Customer\Domain\Repository\CustomerRepositoryInterface;
 use Pimelo\Core\Customer\Infrastructure\Persistence\Doctrine\Entity\Customer as DoctrineCustomer;
 use Pimelo\Core\Customer\Infrastructure\Persistence\Doctrine\Mapper\CustomerMapper;
 use Pimelo\Shared\Auth\AuthenticationUserInterface;
+use Pimelo\Shared\Identity\ID;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * @extends ServiceEntityRepository<DoctrineCustomer>
@@ -29,8 +31,12 @@ class DoctrineCustomerRepository extends ServiceEntityRepository implements Cust
         return $this->count(['email' => $email]) > 0;
     }
 
-    public function getById(string $id): ?Customer
+    public function getById(ID $id): ?Customer
     {
+        if (!Uuid::isValid($id->toString())) {
+            return null;
+        }
+
         $doctrineCustomer = $this->find($id);
 
         return $doctrineCustomer ? $this->customerMapper->toDomain($doctrineCustomer) : null;

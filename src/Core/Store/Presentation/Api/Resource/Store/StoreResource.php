@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pimelo\Core\Store\Presentation\Api\Resource;
+namespace Pimelo\Core\Store\Presentation\Api\Resource\Store;
 
 use Pimelo\Core\Store\Domain\Entity\Store;
 

@@ -19,7 +19,6 @@ class Store
         name: 'id',
         type: UuidType::NAME,
         unique: true,
-        options: ['unsigned' => true],
     )]
     private Uuid $id;
 

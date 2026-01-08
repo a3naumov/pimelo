@@ -3,8 +3,8 @@
 namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 return App::config([
-    'gesdinet_jwt_refresh_token' => [
-        'path' => '/api/v1/auth/refresh-token',
+    'app.api.v1.customers.auth.refresh_token' => [
+        'path' => '/api/v1/customers/auth/refresh-token',
         'methods' => ['POST'],
     ],
 ]);

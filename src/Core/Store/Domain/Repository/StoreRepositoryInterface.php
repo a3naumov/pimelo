@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Pimelo\Core\Store\Domain\Repository;
 
 use Pimelo\Core\Store\Domain\Entity\Store;
+use Pimelo\Shared\Identity\ID;
 
 interface StoreRepositoryInterface
 {
@@ -13,7 +14,7 @@ interface StoreRepositoryInterface
      */
     public function all(): array;
 
-    public function findById(string $id): ?Store;
+    public function findById(ID $id): ?Store;
 
     public function save(Store $store): Store;
 

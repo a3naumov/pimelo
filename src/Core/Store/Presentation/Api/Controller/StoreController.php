@@ -10,13 +10,14 @@ use Pimelo\Core\Store\Application\UseCase\Query\Store\GetAllStores\GetAllStoresQ
 use Pimelo\Core\Store\Application\UseCase\Query\Store\GetStoreById\GetStoreByIdQuery;
 use Pimelo\Core\Store\Domain\Entity\Store;
 use Pimelo\Core\Store\Presentation\Api\Request\Store\CreateStoreRequest;
-use Pimelo\Core\Store\Presentation\Api\Resource\StoreResource;
+use Pimelo\Core\Store\Presentation\Api\Resource\Store\StoreResource;
+use Pimelo\Shared\Identity\ID;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route(path: '/api/v1/stores', name: 'app.api.v1.store.', format: 'json', stateless: true)]
+#[Route(path: '/api/v1/stores/stores', name: 'app.api.v1.stores.store.', format: 'json', stateless: true)]
 class StoreController
 {
     public function __construct(
@@ -38,7 +39,7 @@ class StoreController
     #[Route(path: '/{id}', name: 'get', methods: ['GET'])]
     public function get(string $id): JsonResponse
     {
-        $store = $this->storeService->findStoreById(new GetStoreByIdQuery($id));
+        $store = $this->storeService->findStoreById(new GetStoreByIdQuery(ID::fromString($id)));
 
         if (!$store) {
             throw new NotFoundHttpException('Store not found');
@@ -59,7 +60,7 @@ class StoreController
     #[Route(path: '/{id}', name: 'delete', methods: ['DELETE'])]
     public function delete(string $id): JsonResponse
     {
-        $this->storeService->deleteStore(new DeleteStoreCommand(storeId: $id));
+        $this->storeService->deleteStore(new DeleteStoreCommand(storeId: ID::fromString($id)));
 
         return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
     }

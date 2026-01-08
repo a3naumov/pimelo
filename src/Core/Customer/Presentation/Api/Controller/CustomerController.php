@@ -7,14 +7,14 @@ namespace Pimelo\Core\Customer\Presentation\Api\Controller;
 use Pimelo\Core\Customer\Application\Exception\Customer\CustomerAlreadyExistsException;
 use Pimelo\Core\Customer\Application\Service\CustomerService;
 use Pimelo\Core\Customer\Presentation\Api\Request\Customer\RegisterCustomerRequest;
-use Pimelo\Core\Customer\Presentation\Api\Resource\CustomerResource;
+use Pimelo\Core\Customer\Presentation\Api\Resource\Customer\CustomerResource;
 use Pimelo\Shared\Auth\AuthenticationUserInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
-#[Route(path: '/api/v1/customers', name: 'app.api.v1.customer.', format: 'json', stateless: true)]
+#[Route(path: '/api/v1/customers/customers', name: 'app.api.v1.customers.customer.', format: 'json', stateless: true)]
 class CustomerController
 {
     public function __construct(
