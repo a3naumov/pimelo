@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Catalog\Infrastructure\Persistence\Doctrine\Entity;
 
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Pimelo\Core\Catalog\Infrastructure\Persistence\Doctrine\Repository\DoctrineProductRepository;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -30,22 +28,12 @@ class Product
     )]
     private Uuid $storeId;
 
-    /**
-     * @var Collection<int, Category>
-     */
-    #[ORM\ManyToMany(
-        targetEntity: Category::class,
-        mappedBy: 'products',
-    )]
-    private Collection $categories;
-
     public function __construct(
         string $id,
         string $storeId,
     ) {
         $this->id = Uuid::fromString($id);
         $this->storeId = Uuid::fromString($storeId);
-        $this->categories = new ArrayCollection();
     }
 
     public function getId(): Uuid
@@ -56,13 +44,5 @@ class Product
     public function getStoreId(): Uuid
     {
         return $this->storeId;
-    }
-
-    /**
-     * @return Collection<int, Category>
-     */
-    public function getCategories(): Collection
-    {
-        return $this->categories;
     }
 }
