@@ -10,12 +10,14 @@ use Pimelo\Shared\Identity\ID;
 
 class StoreMapper
 {
-    public function fromDomain(DomainStore $store): Store
+    public function fromDomain(DomainStore $store, ?Store $doctrineStore): Store
     {
-        return new Store(
-            id: $store->getId()->toString(),
-            title: $store->getTitle(),
-        );
+        $doctrineStore ??= new Store();
+
+        $doctrineStore->setId($store->getId()->toString());
+        $doctrineStore->setTitle($store->getTitle());
+
+        return $doctrineStore;
     }
 
     public function toDomain(Store $doctrineStore): DomainStore

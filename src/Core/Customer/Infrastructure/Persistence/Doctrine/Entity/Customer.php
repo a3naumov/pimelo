@@ -42,9 +42,9 @@ class Customer implements UserInterface, PasswordAuthenticatedUserInterface, Aut
     private string $password;
 
     public function __construct(
-        string $id,
-        string $email,
-        string $password,
+        string $id = '',
+        string $email = '',
+        string $password = '',
     ) {
         $this->id = Uuid::fromString($id);
         $this->email = $email;
@@ -56,14 +56,29 @@ class Customer implements UserInterface, PasswordAuthenticatedUserInterface, Aut
         return $this->id;
     }
 
+    public function setId(string $id): void
+    {
+        $this->id = Uuid::fromString($id);
+    }
+
     public function getEmail(): string
     {
         return $this->email;
     }
 
+    public function setEmail(string $email): void
+    {
+        $this->email = $email;
+    }
+
     public function getPassword(): string
     {
         return $this->password;
+    }
+
+    public function setPassword(string $password): void
+    {
+        $this->password = $password;
     }
 
     /**

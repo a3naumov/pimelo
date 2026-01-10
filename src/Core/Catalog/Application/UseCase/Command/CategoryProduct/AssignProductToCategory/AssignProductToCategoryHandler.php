@@ -43,7 +43,7 @@ class AssignProductToCategoryHandler implements CommandMessageHandlerInterface
         }
 
         if (!$category->getStoreId()->equals($product->getStoreId())) {
-            throw new StoreMismatchException();
+            throw new StoreMismatchException('Category and Product belong to different stores.');
         }
 
         $categoryProduct = CategoryProduct::assign($category, $product);

@@ -47,9 +47,13 @@ class DoctrineProductRepository extends ServiceEntityRepository implements Produ
     public function save(Product $product): Product
     {
         $entityManager = $this->getEntityManager();
-        $productEntity = $this->productMapper->fromDomain($product);
+        $doctrineProduct = $this->findOneBy(['id' => $product->getId()->toString()]);
+        $productEntity = $this->productMapper->fromDomain($product, $doctrineProduct);
 
-        $entityManager->persist($productEntity);
+        if (!$doctrineProduct) {
+            $entityManager->persist($productEntity);
+        }
+
         $entityManager->flush();
 
         return $this->productMapper->toDomain($productEntity);

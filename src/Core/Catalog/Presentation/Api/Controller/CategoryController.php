@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Pimelo\Core\Catalog\Presentation\Api\Controller;
 
 use Pimelo\Core\Catalog\Application\Dto\Category\CategoryDto;
+use Pimelo\Core\Catalog\Application\Exception\Category\CategoryNotFoundException;
+use Pimelo\Core\Catalog\Application\Exception\Store\StoreMismatchException;
 use Pimelo\Core\Catalog\Application\Service\Category\CategoryService;
+use Pimelo\Core\Catalog\Application\UseCase\Command\Category\AssignToCategory\AssignToCategoryCommand;
 use Pimelo\Core\Catalog\Application\UseCase\Command\Category\CreateCategory\CreateCategoryCommand;
 use Pimelo\Core\Catalog\Application\UseCase\Command\Category\DeleteCategory\DeleteCategoryCommand;
 use Pimelo\Core\Catalog\Application\UseCase\Query\Category\GetAllCategories\GetAllCategoriesQuery;
 use Pimelo\Core\Catalog\Application\UseCase\Query\Category\GetCategoryById\GetCategoryByIdQuery;
 use Pimelo\Core\Catalog\Presentation\Api\Request\Category\CreateCategoryRequest;
+use Pimelo\Core\Catalog\Presentation\Api\Request\Category\UpdateCategoryParentRequest;
 use Pimelo\Core\Catalog\Presentation\Api\Resource\Category\CategoryResource;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -52,9 +56,16 @@ class CategoryController
     public function create(
         #[MapRequestPayload] CreateCategoryRequest $request,
     ): JsonResponse {
-        $id = $this->categoryService->createCategory(new CreateCategoryCommand(
-            storeId: $request->getStoreId(),
-        ));
+        try {
+            $id = $this->categoryService->createCategory(new CreateCategoryCommand(
+                storeId: $request->getStoreId(),
+                parentId: $request->getParentId(),
+            ));
+        } catch (CategoryNotFoundException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], JsonResponse::HTTP_BAD_REQUEST);
+        } catch (StoreMismatchException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], JsonResponse::HTTP_BAD_REQUEST);
+        }
 
         return new JsonResponse(['id' => $id], JsonResponse::HTTP_CREATED);
     }
@@ -63,6 +74,25 @@ class CategoryController
     public function delete(string $id): JsonResponse
     {
         $this->categoryService->deleteCategory(new DeleteCategoryCommand($id));
+
+        return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
+    }
+
+    #[Route(path: '/{id}/parent', name: 'assign', methods: ['PATCH'])]
+    public function assign(
+        #[MapRequestPayload] UpdateCategoryParentRequest $request,
+        string $id,
+    ): JsonResponse {
+        try {
+            $this->categoryService->assignToCategory(new AssignToCategoryCommand(
+                categoryId: $id,
+                parentCategoryId: $request->getParentId(),
+            ));
+        } catch (CategoryNotFoundException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], JsonResponse::HTTP_BAD_REQUEST);
+        } catch (StoreMismatchException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], JsonResponse::HTTP_BAD_REQUEST);
+        }
 
         return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
     }

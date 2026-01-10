@@ -47,9 +47,13 @@ class DoctrineCategoryRepository extends ServiceEntityRepository implements Cate
     public function save(Category $category): Category
     {
         $entityManager = $this->getEntityManager();
-        $categoryEntity = $this->categoryMapper->fromDomain($category);
+        $doctrineCategory = $this->findOneBy(['id' => Uuid::fromString($category->getId()->toString())]);
+        $categoryEntity = $this->categoryMapper->fromDomain($category, $doctrineCategory);
 
-        $entityManager->persist($categoryEntity);
+        if (!$doctrineCategory) {
+            $entityManager->persist($categoryEntity);
+        }
+
         $entityManager->flush();
 
         return $this->categoryMapper->toDomain($categoryEntity);

@@ -52,9 +52,13 @@ class DoctrineCustomerRepository extends ServiceEntityRepository implements Cust
     public function save(Customer $customer): Customer
     {
         $entityManager = $this->getEntityManager();
-        $storeEntity = $this->customerMapper->fromDomain($customer);
+        $doctrineCustomer = $this->findOneBy(['id' => $customer->getId()->toString()]);
+        $storeEntity = $this->customerMapper->fromDomain($customer, $doctrineCustomer);
 
-        $entityManager->persist($storeEntity);
+        if (!$doctrineCustomer) {
+            $entityManager->persist($storeEntity);
+        }
+
         $entityManager->flush();
 
         return $this->customerMapper->toDomain($storeEntity);

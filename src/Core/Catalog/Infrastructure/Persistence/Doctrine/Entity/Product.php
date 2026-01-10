@@ -29,8 +29,8 @@ class Product
     private Uuid $storeId;
 
     public function __construct(
-        string $id,
-        string $storeId,
+        string $id = '',
+        string $storeId = '',
     ) {
         $this->id = Uuid::fromString($id);
         $this->storeId = Uuid::fromString($storeId);
@@ -41,8 +41,18 @@ class Product
         return $this->id;
     }
 
+    public function setId(string $id): void
+    {
+        $this->id = Uuid::fromString($id);
+    }
+
     public function getStoreId(): Uuid
     {
         return $this->storeId;
+    }
+
+    public function setStoreId(string $storeId): void
+    {
+        $this->storeId = Uuid::fromString($storeId);
     }
 }

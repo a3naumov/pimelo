@@ -30,8 +30,8 @@ class Store
     private string $title;
 
     public function __construct(
-        string $id,
-        string $title,
+        string $id = '',
+        string $title = '',
     ) {
         $this->id = Uuid::fromString($id);
         $this->title = $title;
@@ -42,8 +42,18 @@ class Store
         return $this->id;
     }
 
+    public function setId(string $id): void
+    {
+        $this->id = Uuid::fromString($id);
+    }
+
     public function getTitle(): string
     {
         return $this->title;
+    }
+
+    public function setTitle(string $title): void
+    {
+        $this->title = $title;
     }
 }

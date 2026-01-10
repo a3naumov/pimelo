@@ -47,9 +47,13 @@ class DoctrineStoreRepository extends ServiceEntityRepository implements StoreRe
     public function save(Store $store): Store
     {
         $entityManager = $this->getEntityManager();
-        $storeEntity = $this->storeMapper->fromDomain($store);
+        $doctrineStore = $this->findOneBy(['id' => $store->getId()->toString()]);
+        $storeEntity = $this->storeMapper->fromDomain($store, $doctrineStore);
 
-        $entityManager->persist($storeEntity);
+        if (!$doctrineStore) {
+            $entityManager->persist($storeEntity);
+        }
+
         $entityManager->flush();
 
         return $this->storeMapper->toDomain($storeEntity);

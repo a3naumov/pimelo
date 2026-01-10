@@ -9,6 +9,7 @@ class CategoryDto
     public function __construct(
         private readonly string $id,
         private readonly string $storeId,
+        private readonly ?string $parentId,
     ) {
     }
 
@@ -20,5 +21,10 @@ class CategoryDto
     public function getStoreId(): string
     {
         return $this->storeId;
+    }
+
+    public function getParentId(): ?string
+    {
+        return $this->parentId;
     }
 }

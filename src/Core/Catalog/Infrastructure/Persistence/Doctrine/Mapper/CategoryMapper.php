@@ -10,12 +10,15 @@ use Pimelo\Shared\Identity\ID;
 
 class CategoryMapper
 {
-    public function fromDomain(DomainCategory $category): Category
+    public function fromDomain(DomainCategory $category, ?Category $doctrineCategory): Category
     {
-        return new Category(
-            id: $category->getId()->toString(),
-            storeId: $category->getStoreId()->toString(),
-        );
+        $doctrineCategory ??= new Category();
+
+        $doctrineCategory->setId($category->getId()->toString());
+        $doctrineCategory->setStoreId($category->getStoreId()->toString());
+        $doctrineCategory->setParentId($category->getParentId()?->toString());
+
+        return $doctrineCategory;
     }
 
     public function toDomain(Category $doctrineCategory): DomainCategory
@@ -23,6 +26,9 @@ class CategoryMapper
         return new DomainCategory(
             id: ID::fromString($doctrineCategory->getId()->toRfc4122()),
             storeId: ID::fromString($doctrineCategory->getStoreId()->toRfc4122()),
+            parentId: $doctrineCategory->getParentId()
+                ? ID::fromString($doctrineCategory->getParentId()->toRfc4122())
+                : null,
         );
     }
 }

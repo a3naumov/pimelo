@@ -13,6 +13,7 @@ class CreateCategoryCommand implements CommandMessageInterface
 
     public function __construct(
         private readonly string $storeId,
+        private readonly ?string $parentId,
     ) {
     }
 
@@ -24,6 +25,11 @@ class CreateCategoryCommand implements CommandMessageInterface
     public function getStoreId(): string
     {
         return $this->storeId;
+    }
+
+    public function getParentId(): ?string
+    {
+        return $this->parentId;
     }
 
     public function withId(ID $id): self

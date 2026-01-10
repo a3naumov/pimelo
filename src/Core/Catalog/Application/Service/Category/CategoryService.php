@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Pimelo\Core\Catalog\Application\Service\Category;
 
 use Pimelo\Core\Catalog\Application\Dto\Category\CategoryDto;
+use Pimelo\Core\Catalog\Application\Exception\Category\CategoryNotFoundException;
+use Pimelo\Core\Catalog\Application\Exception\Store\StoreMismatchException;
+use Pimelo\Core\Catalog\Application\UseCase\Command\Category\AssignToCategory\AssignToCategoryCommand;
 use Pimelo\Core\Catalog\Application\UseCase\Command\Category\CreateCategory\CreateCategoryCommand;
 use Pimelo\Core\Catalog\Application\UseCase\Command\Category\DeleteCategory\DeleteCategoryCommand;
 use Pimelo\Core\Catalog\Application\UseCase\Query\Category\GetAllCategories\GetAllCategoriesQuery;
@@ -41,6 +44,10 @@ class CategoryService
         return $category;
     }
 
+    /**
+     * @throws CategoryNotFoundException
+     * @throws StoreMismatchException
+     */
     public function createCategory(CreateCategoryCommand $command): string
     {
         $this->commandBus->dispatch($command->withId(id: $this->idGenerator->generate()));
@@ -49,6 +56,15 @@ class CategoryService
     }
 
     public function deleteCategory(DeleteCategoryCommand $command): void
+    {
+        $this->commandBus->dispatch($command);
+    }
+
+    /**
+     * @throws CategoryNotFoundException
+     * @throws StoreMismatchException
+     */
+    public function assignToCategory(AssignToCategoryCommand $command): void
     {
         $this->commandBus->dispatch($command);
     }

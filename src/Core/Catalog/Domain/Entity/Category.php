@@ -11,6 +11,7 @@ class Category
     public function __construct(
         private readonly ID $id,
         private readonly ID $storeId,
+        private ?ID $parentId = null,
     ) {
     }
 
@@ -22,5 +23,15 @@ class Category
     public function getStoreId(): ID
     {
         return $this->storeId;
+    }
+
+    public function getParentId(): ?ID
+    {
+        return $this->parentId;
+    }
+
+    public function setParentId(?ID $parentId): void
+    {
+        $this->parentId = $parentId;
     }
 }

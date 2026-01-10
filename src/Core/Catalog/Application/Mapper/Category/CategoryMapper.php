@@ -14,6 +14,7 @@ class CategoryMapper
         return new CategoryDto(
             id: $category->getId()->toString(),
             storeId: $category->getStoreId()->toString(),
+            parentId: $category->getParentId()?->toString(),
         );
     }
 }

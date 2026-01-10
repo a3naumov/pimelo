@@ -20,11 +20,13 @@ final class Version20260107214739 extends AbstractMigration
             CREATE TABLE category (
               id UUID NOT NULL,
               store_id UUID NOT NULL,
+              parent_id UUID DEFAULT NULL,
               PRIMARY KEY(id)
             )
         SQL);
 
         $this->addSql('CREATE INDEX IDX_CATEGORY_STORE_ID ON category (store_id)');
+        $this->addSql('CREATE INDEX IDX_CATEGORY_PARENT_ID ON category (parent_id)');
     }
 
     public function down(Schema $schema): void

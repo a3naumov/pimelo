@@ -16,6 +16,7 @@ class CategoryResource implements \JsonSerializable
      * @return array{
      *     id: string,
      *     store_id: string,
+     *     parent_id: string|null,
      * }
      */
     public function jsonSerialize(): array
@@ -23,6 +24,7 @@ class CategoryResource implements \JsonSerializable
         return [
             'id' => $this->category->getId(),
             'store_id' => $this->category->getStoreId(),
+            'parent_id' => $this->category->getParentId(),
         ];
     }
 }

@@ -6,20 +6,12 @@ namespace Pimelo\Core\Catalog\Presentation\Api\Request\Category;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-class CreateCategoryRequest
+class UpdateCategoryParentRequest
 {
     public function __construct(
-        #[Assert\NotBlank]
-        private readonly string $store_id,
-
         #[Assert\NotBlank(allowNull: true)]
         private readonly ?string $parent_id,
     ) {
-    }
-
-    public function getStoreId(): string
-    {
-        return $this->store_id;
     }
 
     public function getParentId(): ?string
