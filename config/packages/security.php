@@ -25,24 +25,24 @@ return App::config([
                 'stateless' => true,
                 'entry_point' => 'jwt',
                 'json_login' => [
-                    'check_path' => '/api/v1/customers/auth/login',
+                    'check_path' => '/api/v1/customers/login',
                     'success_handler' => 'lexik_jwt_authentication.handler.authentication_success',
                     'failure_handler' => 'lexik_jwt_authentication.handler.authentication_failure',
                 ],
                 'jwt' => [],
                 'refresh_jwt' => [
-                    'check_path' => '/api/v1/customers/auth/refresh-token',
+                    'check_path' => '/api/v1/customers/refresh-token',
                 ],
             ],
         ],
 
         'access_control' => [
             [
-                'path' => '^/api/v1/customers/auth/(login|refresh-token)',
+                'path' => '^/api/v1/customers/(login|refresh-token)',
                 'roles' => 'PUBLIC_ACCESS',
             ],
             [
-                'path' => '^/api/v1/customers/customers/register',
+                'path' => '^/api/v1/customers/register',
                 'roles' => 'PUBLIC_ACCESS',
             ],
             [

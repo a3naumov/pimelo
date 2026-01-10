@@ -6,6 +6,7 @@ namespace Pimelo\Core\Catalog\Application\UseCase\Command\Product\CreateProduct;
 
 use Pimelo\Core\Catalog\Domain\Entity\Product;
 use Pimelo\Core\Catalog\Domain\Repository\ProductRepositoryInterface;
+use Pimelo\Shared\Identity\ID;
 use Pimelo\Shared\Messaging\MessageHandler\CommandMessageHandlerInterface;
 
 class CreateProductHandler implements CommandMessageHandlerInterface
@@ -19,7 +20,7 @@ class CreateProductHandler implements CommandMessageHandlerInterface
     {
         $product = new Product(
             id: $command->getId(),
-            storeId: $command->getStoreId(),
+            storeId: ID::fromString($command->getStoreId()),
         );
 
         $this->productRepository->save($product);

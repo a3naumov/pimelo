@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Pimelo\Core\Catalog\Application\Service;
+namespace Pimelo\Core\Catalog\Application\Service\Category;
 
+use Pimelo\Core\Catalog\Application\Dto\Category\CategoryDto;
 use Pimelo\Core\Catalog\Application\UseCase\Command\Category\CreateCategory\CreateCategoryCommand;
 use Pimelo\Core\Catalog\Application\UseCase\Command\Category\DeleteCategory\DeleteCategoryCommand;
 use Pimelo\Core\Catalog\Application\UseCase\Query\Category\GetAllCategories\GetAllCategoriesQuery;
 use Pimelo\Core\Catalog\Application\UseCase\Query\Category\GetCategoryById\GetCategoryByIdQuery;
-use Pimelo\Core\Catalog\Domain\Entity\Category;
-use Pimelo\Shared\Identity\ID;
 use Pimelo\Shared\Identity\IDGeneratorInterface;
 use Pimelo\Shared\Messaging\MessageBus\CommandBusInterface;
 use Pimelo\Shared\Messaging\MessageBus\QueryBusInterface;
@@ -24,35 +23,29 @@ class CategoryService
     }
 
     /**
-     * @return Category[]
+     * @return CategoryDto[]
      */
     public function getAllCategories(GetAllCategoriesQuery $query): array
     {
-        /** @var Category[] $categories */
+        /** @var CategoryDto[] $categories */
         $categories = $this->queryBus->query($query);
 
         return $categories;
     }
 
-    public function findCategoryById(GetCategoryByIdQuery $query): ?Category
+    public function findCategoryById(GetCategoryByIdQuery $query): ?CategoryDto
     {
-        /** @var Category|null $category */
+        /** @var CategoryDto|null $category */
         $category = $this->queryBus->query($query);
 
         return $category;
     }
 
-    public function createCategory(ID $storeId): string
+    public function createCategory(CreateCategoryCommand $command): string
     {
-        $id = $this->idGenerator->generate();
-        $command = new CreateCategoryCommand(
-            id: $id,
-            storeId: $storeId,
-        );
+        $this->commandBus->dispatch($command->withId(id: $this->idGenerator->generate()));
 
-        $this->commandBus->dispatch($command);
-
-        return $id->toString();
+        return $command->getId()->toString();
     }
 
     public function deleteCategory(DeleteCategoryCommand $command): void

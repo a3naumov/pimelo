@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Catalog\Presentation\Api\Resource\Product;
 
-use Pimelo\Core\Catalog\Domain\Entity\Product;
+use Pimelo\Core\Catalog\Application\Dto\Product\ProductDto;
 
-final readonly class ProductResource implements \JsonSerializable
+class ProductResource implements \JsonSerializable
 {
-    public function __construct(private Product $product)
+    public function __construct(private readonly ProductDto $product)
     {
     }
 
@@ -21,8 +21,8 @@ final readonly class ProductResource implements \JsonSerializable
     public function jsonSerialize(): array
     {
         return [
-            'id' => $this->product->getId()->toString(),
-            'store_id' => $this->product->getStoreId()->toString(),
+            'id' => $this->product->getId(),
+            'store_id' => $this->product->getStoreId(),
         ];
     }
 }

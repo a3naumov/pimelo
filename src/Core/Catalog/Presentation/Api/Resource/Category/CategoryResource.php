@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Catalog\Presentation\Api\Resource\Category;
 
-use Pimelo\Core\Catalog\Domain\Entity\Category;
+use Pimelo\Core\Catalog\Application\Dto\Category\CategoryDto;
 
-final readonly class CategoryResource implements \JsonSerializable
+class CategoryResource implements \JsonSerializable
 {
-    public function __construct(private Category $category)
+    public function __construct(private readonly CategoryDto $category)
     {
     }
 
@@ -21,8 +21,8 @@ final readonly class CategoryResource implements \JsonSerializable
     public function jsonSerialize(): array
     {
         return [
-            'id' => $this->category->getId()->toString(),
-            'store_id' => $this->category->getStoreId()->toString(),
+            'id' => $this->category->getId(),
+            'store_id' => $this->category->getStoreId(),
         ];
     }
 }

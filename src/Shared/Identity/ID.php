@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Pimelo\Shared\Identity;
 
-final readonly class ID implements \Stringable
+class ID implements \Stringable
 {
-    public function __construct(private string $value)
+    public function __construct(private readonly string $value)
     {
     }
 

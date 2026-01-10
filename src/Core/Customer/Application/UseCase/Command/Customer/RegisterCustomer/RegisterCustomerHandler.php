@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Customer\Application\UseCase\Command\Customer\RegisterCustomer;
 
-use Pimelo\Core\Customer\Api\Event\CustomerRegisteredEvent;
 use Pimelo\Core\Customer\Application\Exception\Customer\CustomerAlreadyExistsException;
 use Pimelo\Core\Customer\Domain\Entity\Customer;
 use Pimelo\Core\Customer\Domain\Repository\CustomerRepositoryInterface;
+use Pimelo\Core\Customer\Interaction\Customer\Event\CustomerRegisteredEvent;
 use Pimelo\Shared\Auth\PasswordHasherInterface;
 use Pimelo\Shared\EventSourcing\EventDispatcher\ApplicationEventDispatcherInterface;
 use Pimelo\Shared\Messaging\MessageHandler\CommandMessageHandlerInterface;

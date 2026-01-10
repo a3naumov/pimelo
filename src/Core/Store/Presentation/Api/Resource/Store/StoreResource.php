@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Store\Presentation\Api\Resource\Store;
 
-use Pimelo\Core\Store\Domain\Entity\Store;
+use Pimelo\Core\Store\Application\Dto\Store\StoreDto;
 
-final readonly class StoreResource implements \JsonSerializable
+class StoreResource implements \JsonSerializable
 {
-    public function __construct(private Store $store)
+    public function __construct(private readonly StoreDto $store)
     {
     }
 
@@ -21,7 +21,7 @@ final readonly class StoreResource implements \JsonSerializable
     public function jsonSerialize(): array
     {
         return [
-            'id' => $this->store->getId()->toString(),
+            'id' => $this->store->getId(),
             'title' => $this->store->getTitle(),
         ];
     }

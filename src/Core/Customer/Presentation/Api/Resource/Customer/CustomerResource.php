@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Customer\Presentation\Api\Resource\Customer;
 
-use Pimelo\Core\Customer\Domain\Entity\Customer;
+use Pimelo\Core\Customer\Application\Dto\Customer\CustomerDto;
 
-final readonly class CustomerResource implements \JsonSerializable
+class CustomerResource implements \JsonSerializable
 {
-    public function __construct(private Customer $customer)
+    public function __construct(private readonly CustomerDto $customer)
     {
     }
 
@@ -21,7 +21,7 @@ final readonly class CustomerResource implements \JsonSerializable
     public function jsonSerialize(): array
     {
         return [
-            'id' => $this->customer->getId()->toString(),
+            'id' => $this->customer->getId(),
             'email' => $this->customer->getEmail(),
         ];
     }

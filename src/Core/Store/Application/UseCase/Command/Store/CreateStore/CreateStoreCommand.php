@@ -9,8 +9,9 @@ use Pimelo\Shared\Messaging\Message\CommandMessageInterface;
 
 class CreateStoreCommand implements CommandMessageInterface
 {
+    private ID $id;
+
     public function __construct(
-        private readonly ID $id,
         private readonly string $title,
     ) {
     }
@@ -23,5 +24,12 @@ class CreateStoreCommand implements CommandMessageInterface
     public function getTitle(): string
     {
         return $this->title;
+    }
+
+    public function withId(ID $id): self
+    {
+        $this->id = $id;
+
+        return $this;
     }
 }

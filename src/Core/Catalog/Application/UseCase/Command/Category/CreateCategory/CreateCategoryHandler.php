@@ -6,6 +6,7 @@ namespace Pimelo\Core\Catalog\Application\UseCase\Command\Category\CreateCategor
 
 use Pimelo\Core\Catalog\Domain\Entity\Category;
 use Pimelo\Core\Catalog\Domain\Repository\CategoryRepositoryInterface;
+use Pimelo\Shared\Identity\ID;
 use Pimelo\Shared\Messaging\MessageHandler\CommandMessageHandlerInterface;
 
 class CreateCategoryHandler implements CommandMessageHandlerInterface
@@ -19,7 +20,7 @@ class CreateCategoryHandler implements CommandMessageHandlerInterface
     {
         $category = new Category(
             id: $command->getId(),
-            storeId: $command->getStoreId(),
+            storeId: ID::fromString($command->getStoreId()),
         );
 
         $this->categoryRepository->save($category);

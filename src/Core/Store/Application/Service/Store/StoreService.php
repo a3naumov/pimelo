@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Pimelo\Core\Store\Application\Service;
+namespace Pimelo\Core\Store\Application\Service\Store;
 
+use Pimelo\Core\Store\Application\Dto\Store\StoreDto;
 use Pimelo\Core\Store\Application\UseCase\Command\Store\CreateStore\CreateStoreCommand;
 use Pimelo\Core\Store\Application\UseCase\Command\Store\DeleteStore\DeleteStoreCommand;
 use Pimelo\Core\Store\Application\UseCase\Query\Store\GetAllStores\GetAllStoresQuery;
 use Pimelo\Core\Store\Application\UseCase\Query\Store\GetStoreById\GetStoreByIdQuery;
-use Pimelo\Core\Store\Domain\Entity\Store;
 use Pimelo\Shared\Identity\IDGeneratorInterface;
 use Pimelo\Shared\Messaging\MessageBus\CommandBusInterface;
 use Pimelo\Shared\Messaging\MessageBus\QueryBusInterface;
@@ -23,35 +23,29 @@ class StoreService
     }
 
     /**
-     * @return Store[]
+     * @return StoreDto[]
      */
     public function getAllStores(GetAllStoresQuery $query): array
     {
-        /** @var Store[] $stores */
+        /** @var StoreDto[] $stores */
         $stores = $this->queryBus->query($query);
 
         return $stores;
     }
 
-    public function findStoreById(GetStoreByIdQuery $query): ?Store
+    public function findStoreById(GetStoreByIdQuery $query): ?StoreDto
     {
-        /** @var Store|null $store */
+        /** @var StoreDto|null $store */
         $store = $this->queryBus->query($query);
 
         return $store;
     }
 
-    public function createStore(string $title): string
+    public function createStore(CreateStoreCommand $command): string
     {
-        $id = $this->idGenerator->generate();
-        $command = new CreateStoreCommand(
-            id: $id,
-            title: $title,
-        );
+        $this->commandBus->dispatch($command->withId(id: $this->idGenerator->generate()));
 
-        $this->commandBus->dispatch($command);
-
-        return $id->toString();
+        return $command->getId()->toString();
     }
 
     public function deleteStore(DeleteStoreCommand $command): void

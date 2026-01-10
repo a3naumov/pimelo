@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace Pimelo\Core\Catalog\Application\UseCase\Command\Category\DeleteCategory;
 
-use Pimelo\Shared\Identity\ID;
 use Pimelo\Shared\Messaging\Message\CommandMessageInterface;
 
 class DeleteCategoryCommand implements CommandMessageInterface
 {
     public function __construct(
-        private readonly ID $categoryId,
+        private readonly string $categoryId,
     ) {
     }
 
-    public function getCategoryId(): ID
+    public function getCategoryId(): string
     {
         return $this->categoryId;
     }
