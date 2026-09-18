@@ -1,0 +1,24 @@
+services:
+  caddy:
+    command: caddy run --config /etc/caddy/Caddyfile.dev --adapter caddyfile
+    volumes:
+      - type: bind
+        source: ./docker/caddy/Caddyfile.dev
+        target: /etc/caddy/Caddyfile.dev
+        read_only: true
+
+  backend:
+    build:
+      target: dev
+      args:
+        PHP_IDE_CONFIG_SERVER_NAME: ${SERVICE_BACKEND_XDEBUG_SERVER_NAME:-pimelo}
+    ports:
+      - "${SERVICE_BACKEND_PORT:-8080}:80"
+
+  frontend:
+    ports:
+      - "${SERVICE_FRONTEND_PORT:-5173}:5173"
+
+  postgres:
+    ports:
+      - "${SERVICE_POSTGRES_PORT:-5432}:5432"

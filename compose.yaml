@@ -1,0 +1,71 @@
+services:
+  caddy:
+    container_name: ${COMPOSE_PROJECT_NAME}-caddy
+    image: caddy:2.11.4-alpine
+    ports:
+      - "${SERVICE_CADDY_PORT:-80}:80"
+    volumes:
+      - type: bind
+        source: ./docker/caddy/Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+    depends_on:
+      - backend
+    networks:
+      - frontend
+      - backend
+
+  backend:
+    container_name: ${COMPOSE_PROJECT_NAME}-backend
+    build:
+      context: ./docker/backend
+    image: ${COMPOSE_PROJECT_NAME}-backend
+    volumes:
+      - type: bind
+        source: ./src/backend
+        target: /app
+    working_dir: /app
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - backend
+
+  frontend:
+    container_name: ${COMPOSE_PROJECT_NAME}-frontend
+    image: node:24.18.1-alpine3.24
+    volumes:
+      - type: bind
+        source: ./src/frontend
+        target: /app
+    working_dir: /app
+    tty: true
+    user: 'node'
+    networks:
+      - frontend
+
+  postgres:
+    container_name: ${COMPOSE_PROJECT_NAME}-postgres
+    image: postgres:18.4-alpine3.24
+    environment:
+      POSTGRES_USER: ${SERVICE_POSTGRES_USER:-dbuser}
+      POSTGRES_PASSWORD: ${SERVICE_POSTGRES_PASSWORD:-dbpassword}
+      POSTGRES_DB: ${SERVICE_POSTGRES_DB:-appdb}
+    volumes:
+      - type: volume
+        source: postgres_data
+        target: /var/lib/postgresql
+    networks:
+      - backend
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  frontend:
+    name: ${COMPOSE_PROJECT_NAME}-frontend
+    driver: bridge
+  backend:
+    name: ${COMPOSE_PROJECT_NAME}-backend
+    driver: bridge

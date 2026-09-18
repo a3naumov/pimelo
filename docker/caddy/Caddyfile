@@ -1,0 +1,16 @@
+{
+	auto_https off
+}
+
+:80 {
+	@web path /web /web/*
+	handle @web {
+		reverse_proxy backend:80
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
