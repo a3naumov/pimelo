@@ -22,3 +22,41 @@ services:
   postgres:
     ports:
       - "${SERVICE_POSTGRES_PORT:-5432}:5432"
+
+  rabbitmq:
+    image: rabbitmq:4.3.4-management-alpine
+    ports:
+      - "${SERVICE_RABBITMQ_PORT:-5672}:5672"
+      - "${SERVICE_RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+
+  redis:
+    ports:
+      - "${SERVICE_REDIS_PORT:-6379}:6379"
+
+  opensearch:
+    ports:
+      - "${SERVICE_OPENSEARCH_PORT:-9200}:9200"
+
+  opensearch-dashboards:
+    container_name: ${COMPOSE_PROJECT_NAME}-opensearch-dashboards
+    image: opensearchproject/opensearch-dashboards:3.7.0
+    environment:
+      OPENSEARCH_HOSTS: '["https://opensearch:9200"]'
+      OPENSEARCH_USERNAME: ${SERVICE_OPENSEARCH_USERNAME:-admin}
+      OPENSEARCH_PASSWORD: ${SERVICE_OPENSEARCH_ADMIN_PASSWORD:-u9!Q2v@M7r^L4x!K8p}
+      OPENSEARCH_SSL_VERIFICATIONMODE: none
+    depends_on:
+      - opensearch
+    ports:
+      - "${SERVICE_OPENSEARCH_DASHBOARDS_PORT:-5601}:5601"
+    networks:
+      - backend
+
+  centrifugo:
+    ports:
+      - "${SERVICE_CENTRIFUGO_PORT:-8000}:8000"
+
+  minio:
+    ports:
+      - "${SERVICE_MINIO_PORT:-9000}:9000"
+      - "${SERVICE_MINIO_CONSOLE_PORT:-9001}:9001"
