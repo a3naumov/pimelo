@@ -5,33 +5,83 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Web\Catalog\Adapter\Symfony\Http\Api\Controller;
 
 use App\Web\Catalog\Adapter\Symfony\Http\Api\Controller\ProductController;
+use App\Web\Catalog\Adapter\Symfony\Http\Api\Request\Product\CreateProductRequest;
+use App\Web\Catalog\Adapter\Symfony\Persistence\Doctrine\Entity\Product as DoctrineProduct;
+use App\Web\Catalog\Adapter\Symfony\Persistence\Doctrine\Mapper\ProductMapper;
+use App\Web\Catalog\Adapter\Symfony\Persistence\Doctrine\Repository\ProductRepository;
+use App\Web\Catalog\Entity\Product;
+use App\Web\Catalog\Http\Api\Resource\Product as ProductResource;
+use App\Web\Catalog\Persistence\Repository\ProductRepositoryInterface;
+use App\Web\General\Adapter\Symfony\Identity\UuidGenerator;
+use App\Web\General\Identity\Id;
+use App\Web\General\Identity\IdGeneratorInterface;
+use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\UsesClass;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Uid\Uuid;
+use Symfony\Component\Uid\UuidV7;
 
 #[CoversClass(ProductController::class)]
+#[UsesClass(CreateProductRequest::class)]
+#[UsesClass(DoctrineProduct::class)]
+#[UsesClass(ProductMapper::class)]
+#[UsesClass(ProductRepository::class)]
+#[UsesClass(Product::class)]
+#[UsesClass(ProductResource::class)]
+#[UsesClass(Id::class)]
+#[UsesClass(UuidGenerator::class)]
 final class ProductControllerTest extends WebTestCase
 {
+    private KernelBrowser $client;
+    private Connection $connection;
+    private EntityManagerInterface $entityManager;
+    private ProductRepositoryInterface $repository;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->client = self::createClient();
+        $this->client->disableReboot();
+
+        $container = self::getContainer();
+        $this->entityManager = $container->get(EntityManagerInterface::class);
+        $this->connection = $this->entityManager->getConnection();
+        $this->repository = $container->get(ProductRepositoryInterface::class);
+    }
+
     // ========================================================================
-    // GET: returns the expected product list as JSON
+    // GET: returns persisted products or an empty catalog as JSON
     // ========================================================================
 
     public function testListReturnsProductsAsJson(): void
     {
-        $client = self::createClient();
+        $first = $this->createProduct('product-1');
+        $second = $this->createProduct('product-2');
 
-        $client->request('GET', '/web/products/');
+        $this->client->request('GET', '/web/products/');
 
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        self::assertSame([
-            'products' => [
-                ['id' => '1', 'sku' => 'product-1'],
-                ['id' => '2', 'sku' => 'product-2'],
-                ['id' => '3', 'sku' => 'product-3'],
-            ],
-        ], json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR));
+        $data = $this->responseData();
+        self::assertSame(['products'], array_keys($data));
+        self::assertEqualsCanonicalizing([
+            ['id' => $first->getId()->toString(), 'sku' => 'product-1'],
+            ['id' => $second->getId()->toString(), 'sku' => 'product-2'],
+        ], $data['products']);
+    }
+
+    public function testListReturnsEmptyCatalog(): void
+    {
+        $this->client->request('GET', '/web/products/');
+
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+        self::assertSame(['products' => []], $this->responseData());
     }
 
     // ========================================================================
@@ -40,153 +90,262 @@ final class ProductControllerTest extends WebTestCase
 
     public function testHeadReturnsHeadersWithoutBody(): void
     {
-        $client = self::createClient();
-
-        $client->request('HEAD', '/web/products/');
+        $this->client->request('HEAD', '/web/products/');
 
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        self::assertSame('', $client->getResponse()->getContent());
-    }
-
-    // ========================================================================
-    // GET /{id}: returns a specific product
-    // ========================================================================
-
-    #[DataProvider('existingProducts')]
-    public function testShowReturnsProductAsJson(string $id, string $sku): void
-    {
-        $client = self::createClient();
-
-        $client->request('GET', '/web/products/'.$id);
-
-        self::assertResponseStatusCodeSame(Response::HTTP_OK);
-        self::assertResponseHeaderSame('Content-Type', 'application/json');
-        self::assertSame([
-            'product' => ['id' => $id, 'sku' => $sku],
-        ], json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR));
+        self::assertSame('', $this->client->getResponse()->getContent());
     }
 
     public function testShowHeadReturnsHeadersWithoutBody(): void
     {
-        $client = self::createClient();
+        $product = $this->createProduct('product-1');
 
-        $client->request('HEAD', '/web/products/1');
+        $this->client->request('HEAD', '/web/products/'.$product->getId());
 
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        self::assertSame('', $client->getResponse()->getContent());
+        self::assertSame('', $this->client->getResponse()->getContent());
     }
 
     // ========================================================================
-    // POST: creates a mock product from a valid SKU
+    // GET /{id}: loads a persisted product by its UUID
+    // ========================================================================
+
+    public function testShowReturnsProductAsJson(): void
+    {
+        $product = $this->createProduct('product-1');
+
+        $this->client->request('GET', '/web/products/'.$product->getId());
+
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+        self::assertResponseHeaderSame('Content-Type', 'application/json');
+        self::assertSame([
+            'product' => ['id' => $product->getId()->toString(), 'sku' => 'product-1'],
+        ], $this->responseData());
+    }
+
+    public function testShowAcceptsUppercaseUuid(): void
+    {
+        $product = $this->createProduct('product-1');
+
+        $this->client->request('GET', '/web/products/'.strtoupper($product->getId()->toString()));
+
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+        self::assertSame([
+            'product' => ['id' => $product->getId()->toString(), 'sku' => 'product-1'],
+        ], $this->responseData());
+    }
+
+    // ========================================================================
+    // POST: persists a valid SKU with a generated UUID v7
     // ========================================================================
 
     #[DataProvider('validSkus')]
-    public function testCreateReturnsMockProduct(string $sku, string $expectedSku): void
+    public function testCreatePersistsProduct(string $sku, string $expectedSku): void
     {
-        $client = self::createClient();
-
-        $client->jsonRequest('POST', '/web/products/', ['sku' => $sku]);
+        $this->client->jsonRequest('POST', '/web/products/', ['sku' => $sku]);
 
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
+        $data = $this->responseData();
+        self::assertInstanceOf(UuidV7::class, Uuid::fromString($data['product']['id']));
         self::assertSame([
-            'product' => ['id' => '4', 'sku' => $expectedSku],
-        ], json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR));
+            'product' => ['id' => $data['product']['id'], 'sku' => $expectedSku],
+        ], $data);
+
+        $this->entityManager->clear();
+        $saved = $this->repository->findById(Id::fromString($data['product']['id']));
+        self::assertNotNull($saved);
+        self::assertSame($data['product']['id'], $saved->getId()->toString());
+        self::assertSame($expectedSku, $saved->getSku());
+        self::assertCount(1, $this->repository->findAll());
     }
 
     // ========================================================================
-    // POST: rejects invalid JSON and missing or invalid SKUs
+    // POST: rejects invalid payloads without inserting products
     // ========================================================================
 
     #[DataProvider('invalidJsonPayloads')]
     public function testCreateRejectsInvalidJson(string $payload): void
     {
-        $client = self::createClient();
-
-        $client->request('POST', '/web/products/', server: ['CONTENT_TYPE' => 'application/json'], content: $payload);
+        $this->client->request('POST', '/web/products/', server: ['CONTENT_TYPE' => 'application/json'], content: $payload);
 
         self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        self::assertSame([
-            'error' => 'Invalid JSON payload.',
-        ], json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR));
+        self::assertSame(Response::HTTP_BAD_REQUEST, $this->responseData()['status']);
+        self::assertSame([], $this->repository->findAll());
     }
 
     #[DataProvider('invalidSkuPayloads')]
     public function testCreateRejectsInvalidSku(array $payload): void
     {
-        $client = self::createClient();
-
-        $client->jsonRequest('POST', '/web/products/', $payload);
+        $this->client->jsonRequest('POST', '/web/products/', $payload);
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        self::assertSame([
-            'error' => 'SKU must be a non-empty string.',
-        ], json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR));
+        $data = $this->responseData();
+        self::assertSame(Response::HTTP_UNPROCESSABLE_ENTITY, $data['status']);
+        self::assertSame('sku', $data['violations'][0]['propertyPath']);
+        self::assertSame([], $this->repository->findAll());
+    }
+
+    #[DataProvider('invalidPayloadStructures')]
+    public function testCreateRejectsInvalidPayloadStructure(string $payload): void
+    {
+        $this->client->request('POST', '/web/products/', server: ['CONTENT_TYPE' => 'application/json'], content: $payload);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        self::assertResponseHeaderSame('Content-Type', 'application/json');
+        self::assertSame(Response::HTTP_UNPROCESSABLE_ENTITY, $this->responseData()['status']);
+        self::assertSame([], $this->repository->findAll());
+    }
+
+    #[DataProvider('oversizedSkus')]
+    public function testCreateRejectsOversizedSku(string $sku): void
+    {
+        $this->client->jsonRequest('POST', '/web/products/', ['sku' => $sku]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $data = $this->responseData();
+        self::assertSame(Response::HTTP_UNPROCESSABLE_ENTITY, $data['status']);
+        self::assertSame('sku', $data['violations'][0]['propertyPath']);
+        self::assertSame('SKU must not exceed 255 characters.', $data['violations'][0]['title']);
+        self::assertSame([], $this->repository->findAll());
     }
 
     // ========================================================================
-    // DELETE /{id}: acknowledges mock deletion without a response body
+    // POST: duplicate SKUs return a conflict and preserve existing data
     // ========================================================================
 
-    #[DataProvider('existingProductIds')]
-    public function testDeleteReturnsNoContent(string $id): void
+    #[DataProvider('duplicateSkus')]
+    public function testCreateRejectsDuplicateSku(string $sku): void
     {
-        $client = self::createClient();
+        $product = $this->createProduct('existing-product');
 
-        $client->request('DELETE', '/web/products/'.$id);
+        $this->client->jsonRequest('POST', '/web/products/', ['sku' => $sku]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        self::assertResponseHeaderSame('Content-Type', 'application/json');
+        self::assertSame(['error' => 'A product with this SKU already exists.'], $this->responseData());
+        self::assertSame(1, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM product'));
+
+        $this->client->request('GET', '/web/products/'.$product->getId());
+
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+        self::assertSame([
+            'product' => ['id' => $product->getId()->toString(), 'sku' => 'existing-product'],
+        ], $this->responseData());
+    }
+
+    // ========================================================================
+    // DELETE /{id}: removes the requested product and preserves other products
+    // ========================================================================
+
+    public function testDeleteRemovesPersistedProduct(): void
+    {
+        $product = $this->createProduct('product-1');
+        $other = $this->createProduct('product-2');
+
+        $this->client->request('DELETE', '/web/products/'.$product->getId());
 
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
-        self::assertSame('', $client->getResponse()->getContent());
+        self::assertSame('', $this->client->getResponse()->getContent());
+        $this->entityManager->clear();
+        self::assertNull($this->repository->findById($product->getId()));
+        self::assertEquals([$other], $this->repository->findAll());
     }
 
     // ========================================================================
-    // Unknown products: viewing or deleting a missing product returns 404
+    // Unknown products: valid UUIDs without a matching product return 404
     // ========================================================================
 
     #[DataProvider('missingProducts')]
     public function testMissingProductReturnsNotFound(string $method, string $id): void
     {
-        $client = self::createClient();
+        $product = $this->createProduct('existing-product');
 
-        $client->request($method, '/web/products/'.$id);
+        $this->client->request($method, '/web/products/'.$id);
 
         self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        self::assertSame([
-            'error' => 'Product not found.',
-        ], json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR));
+        self::assertSame(['error' => 'Product not found.'], $this->responseData());
+        $this->entityManager->clear();
+        self::assertEquals([$product], $this->repository->findAll());
     }
 
     // ========================================================================
-    // Mock state: creation and deletion do not change the fixture products
+    // Route requirements: malformed UUIDs never reach the controller
     // ========================================================================
 
-    public function testMockOperationsDoNotPersistChanges(): void
+    #[DataProvider('invalidProductIds')]
+    public function testRouteRejectsInvalidUuid(string $method, string $id): void
     {
-        $client = self::createClient();
-        $client->request('GET', '/web/products/');
-        self::assertResponseStatusCodeSame(Response::HTTP_OK);
-        $initialProducts = json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        $product = $this->createProduct('existing-product');
 
-        $client->jsonRequest('POST', '/web/products/', ['sku' => 'new-product']);
-        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $this->client->request($method, '/web/products/'.$id, server: ['HTTP_ACCEPT' => 'application/json']);
 
-        $client->request('GET', '/web/products/4');
         self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        self::assertResponseHeaderSame('Content-Type', 'application/json');
+        self::assertSame(Response::HTTP_NOT_FOUND, $this->responseData()['status']);
+        self::assertNull($this->client->getRequest()->attributes->get('_route'));
+        $this->entityManager->clear();
+        self::assertEquals([$product], $this->repository->findAll());
+    }
 
-        $client->request('DELETE', '/web/products/1');
+    // ========================================================================
+    // POST: rejects unsupported content types before saving a product
+    // ========================================================================
+
+    public function testCreateRejectsUnsupportedContentType(): void
+    {
+        $this->client->request('POST', '/web/products/', server: ['CONTENT_TYPE' => 'text/plain'], content: '{"sku":"product-1"}');
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
+        self::assertSame(Response::HTTP_UNSUPPORTED_MEDIA_TYPE, $this->responseData()['status']);
+        self::assertSame([], $this->repository->findAll());
+    }
+
+    // ========================================================================
+    // Persistence: create, read, list, and delete across HTTP requests
+    // ========================================================================
+
+    public function testProductLifecyclePersistsChanges(): void
+    {
+        $this->client->jsonRequest('POST', '/web/products/', ['sku' => 'new-product']);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $product = $this->responseData()['product'];
+
+        $this->entityManager->clear();
+        $this->client->request('GET', '/web/products/'.$product['id']);
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+        self::assertSame(['product' => $product], $this->responseData());
+
+        $this->client->jsonRequest('POST', '/web/products/', ['sku' => 'another-product']);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $other = $this->responseData()['product'];
+        self::assertNotSame($product['id'], $other['id']);
+
+        $this->client->request('GET', '/web/products/');
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+        self::assertEqualsCanonicalizing([$product, $other], $this->responseData()['products']);
+
+        $this->client->request('DELETE', '/web/products/'.$product['id']);
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
 
-        $client->request('GET', '/web/products/1');
-        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+        $this->client->request('GET', '/web/products/'.$product['id']);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
 
-        $client->request('GET', '/web/products/');
+        $this->client->request('DELETE', '/web/products/'.$product['id']);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+
+        $this->client->request('GET', '/web/products/');
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
-        self::assertSame($initialProducts, json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR));
+        self::assertSame(['products' => [$other]], $this->responseData());
+
+        $this->client->jsonRequest('POST', '/web/products/', ['sku' => 'new-product']);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertNotSame($product['id'], $this->responseData()['product']['id']);
     }
 
     // ========================================================================
@@ -196,47 +355,48 @@ final class ProductControllerTest extends WebTestCase
     #[DataProvider('unsupportedMethods')]
     public function testRejectsUnsupportedMethods(string $method, string $path, string $allowedMethods): void
     {
-        $client = self::createClient();
-
-        $client->request($method, $path);
+        $this->client->request($method, $path);
 
         self::assertResponseStatusCodeSame(Response::HTTP_METHOD_NOT_ALLOWED);
         self::assertResponseHeaderSame('Allow', $allowedMethods);
     }
 
     // ========================================================================
-    // Data providers
+    // Helpers: persist fixtures and decode JSON responses
     // ========================================================================
 
-    public static function existingProducts(): iterable
+    private function createProduct(string $sku): Product
     {
-        yield 'first product' => ['1', 'product-1'];
-        yield 'second product' => ['2', 'product-2'];
-        yield 'third product' => ['3', 'product-3'];
+        $id = self::getContainer()->get(IdGeneratorInterface::class)->generate();
+        $product = $this->repository->save(new Product(sku: $sku, id: $id));
+        $this->entityManager->clear();
+
+        return $product;
     }
 
-    public static function existingProductIds(): iterable
+    private function responseData(): array
     {
-        yield 'first product' => ['1'];
-        yield 'second product' => ['2'];
-        yield 'third product' => ['3'];
+        return json_decode($this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
     }
+
+    // ========================================================================
+    // Data providers
+    // ========================================================================
 
     public static function validSkus(): iterable
     {
         yield 'plain SKU' => ['new-product', 'new-product'];
         yield 'trimmed SKU' => ['  new-product  ', 'new-product'];
         yield 'zero string' => ['0', '0'];
+        yield 'maximum length' => [str_repeat('a', 255), str_repeat('a', 255)];
+        yield 'maximum length after trimming' => ['  '.str_repeat('a', 255).'  ', str_repeat('a', 255)];
+        yield 'multibyte maximum length' => [str_repeat('é', 255), str_repeat('é', 255)];
     }
 
     public static function invalidJsonPayloads(): iterable
     {
         yield 'empty body' => [''];
         yield 'malformed JSON' => ['{"sku":'];
-        yield 'null' => ['null'];
-        yield 'string' => ['"new-product"'];
-        yield 'number' => ['123'];
-        yield 'boolean' => ['true'];
     }
 
     public static function invalidSkuPayloads(): iterable
@@ -251,12 +411,41 @@ final class ProductControllerTest extends WebTestCase
         yield 'object SKU' => [['sku' => (object) ['value' => 'new-product']]];
     }
 
+    public static function invalidPayloadStructures(): iterable
+    {
+        yield 'null' => ['null'];
+        yield 'string' => ['"new-product"'];
+        yield 'number' => ['123'];
+        yield 'boolean' => ['true'];
+        yield 'list' => ['[{"sku":"new-product"}]'];
+    }
+
+    public static function oversizedSkus(): iterable
+    {
+        yield 'ASCII' => [str_repeat('a', 256)];
+        yield 'multibyte' => [str_repeat('é', 256)];
+    }
+
+    public static function duplicateSkus(): iterable
+    {
+        yield 'exact match' => ['existing-product'];
+        yield 'trimmed match' => ['  existing-product  '];
+    }
+
     public static function missingProducts(): iterable
     {
-        yield 'GET unknown ID' => ['GET', '999'];
-        yield 'GET non-numeric ID' => ['GET', 'unknown'];
-        yield 'DELETE unknown ID' => ['DELETE', '999'];
-        yield 'DELETE non-numeric ID' => ['DELETE', 'unknown'];
+        yield 'GET unknown UUID' => ['GET', '01994731-0123-7000-8000-000000000000'];
+        yield 'DELETE unknown UUID' => ['DELETE', '01994731-0123-7000-8000-000000000000'];
+    }
+
+    public static function invalidProductIds(): iterable
+    {
+        foreach (['GET', 'DELETE'] as $method) {
+            yield $method.' malformed UUID' => [$method, 'unknown'];
+            yield $method.' former mock ID' => [$method, '1'];
+            yield $method.' invalid hex digit' => [$method, '01994731-0123-7000-8000-00000000000z'];
+            yield $method.' invalid variant' => [$method, '01994731-0123-7000-0000-000000000000'];
+        }
     }
 
     public static function unsupportedMethods(): iterable
@@ -265,9 +454,9 @@ final class ProductControllerTest extends WebTestCase
         yield 'PATCH collection' => ['PATCH', '/web/products/', 'GET, HEAD, POST'];
         yield 'DELETE collection' => ['DELETE', '/web/products/', 'GET, HEAD, POST'];
         yield 'OPTIONS collection' => ['OPTIONS', '/web/products/', 'GET, HEAD, POST'];
-        yield 'POST product' => ['POST', '/web/products/1', 'GET, HEAD, DELETE'];
-        yield 'PUT product' => ['PUT', '/web/products/1', 'GET, HEAD, DELETE'];
-        yield 'PATCH product' => ['PATCH', '/web/products/1', 'GET, HEAD, DELETE'];
-        yield 'OPTIONS product' => ['OPTIONS', '/web/products/1', 'GET, HEAD, DELETE'];
+        yield 'POST product' => ['POST', '/web/products/01994731-0123-7000-8000-000000000000', 'GET, HEAD, DELETE'];
+        yield 'PUT product' => ['PUT', '/web/products/01994731-0123-7000-8000-000000000000', 'GET, HEAD, DELETE'];
+        yield 'PATCH product' => ['PATCH', '/web/products/01994731-0123-7000-8000-000000000000', 'GET, HEAD, DELETE'];
+        yield 'OPTIONS product' => ['OPTIONS', '/web/products/01994731-0123-7000-8000-000000000000', 'GET, HEAD, DELETE'];
     }
 }

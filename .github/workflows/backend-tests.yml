@@ -15,6 +15,21 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
+    services:
+      postgres:
+        image: postgres:18.4-alpine3.24
+        env:
+          POSTGRES_USER: dbuser
+          POSTGRES_PASSWORD: dbpassword
+          POSTGRES_DB: appdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dbuser -d appdb"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -27,6 +42,7 @@ jobs:
       - name: Install dependencies and run backend tests
         run: |
           docker run --rm \
+            --network host \
             --user "$(id -u):$(id -g)" \
             --volume "$GITHUB_WORKSPACE/src/backend:/app" \
             --workdir /app \
@@ -34,7 +50,11 @@ jobs:
             --env APP_DEBUG=1 \
             --env XDEBUG_MODE=off \
             --env COMPOSER_HOME=/tmp/composer \
+            --env 'DATABASE_URL=postgresql://dbuser:dbpassword@127.0.0.1:5432/appdb?serverVersion=18.4&charset=utf8' \
             pimelo-backend-ci sh -ec '
               composer install --no-interaction --prefer-dist --no-progress
+              php bin/console doctrine:database:create --env=test --if-not-exists
+              php bin/console doctrine:migrations:migrate --env=test --no-interaction
+              php bin/console doctrine:schema:validate --env=test
               php bin/phpunit
             '

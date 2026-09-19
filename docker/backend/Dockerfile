@@ -35,6 +35,10 @@ CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
 # Disable https
 ENV SERVER_NAME=":80"
 
+# Check the Symfony application through its HTTP endpoint.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl --fail --silent --show-error --max-time 3 --output /dev/null http://127.0.0.1/web/healthcheck || exit 1
+
 FROM base AS dev
 
 # Install and configure development extensions
