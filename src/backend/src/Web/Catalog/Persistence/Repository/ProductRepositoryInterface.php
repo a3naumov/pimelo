@@ -9,6 +9,7 @@ use App\Web\General\Identity\Id;
 
 interface ProductRepositoryInterface
 {
+    /** @return iterable<Product> */
     public function findAll(): iterable;
 
     public function findById(Id $id): ?Product;

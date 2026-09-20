@@ -1,4 +1,4 @@
-name: Backend tests
+name: Backend checks
 
 on:
   pull_request:
@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  backend-tests:
-    name: Backend tests
+  backend-checks:
+    name: Backend checks
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -39,7 +39,7 @@ jobs:
       - name: Build backend image
         run: docker build --target dev --tag pimelo-backend-ci docker/backend
 
-      - name: Install dependencies and run backend tests
+      - name: Install dependencies, run PHPStan and backend tests
         run: |
           docker run --rm \
             --network host \
@@ -53,6 +53,7 @@ jobs:
             --env 'DATABASE_URL=postgresql://dbuser:dbpassword@127.0.0.1:5432/appdb?serverVersion=18.4&charset=utf8' \
             pimelo-backend-ci sh -ec '
               composer install --no-interaction --prefer-dist --no-progress
+              composer analyse -- --no-progress --error-format=github
               php bin/console doctrine:database:create --env=test --if-not-exists
               php bin/console doctrine:migrations:migrate --env=test --no-interaction
               php bin/console doctrine:schema:validate --env=test

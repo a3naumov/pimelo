@@ -1,3 +1,106 @@
 # Pimelo backend
 
 Symfony 8.1 application
+
+## Tests
+
+PHPUnit runs in the `test` environment using `phpunit.dist.xml`. Tests are grouped
+by type, with each directory mirroring the corresponding path in `src/`:
+
+- `tests/Unit/`: isolated logic, without a database.
+- `tests/Integration/`: Doctrine repositories and real PostgreSQL operations.
+- `tests/Functional/`: HTTP requests through the Symfony kernel.
+
+### Configure the test database
+
+Database tests use the existing `postgres` service, but a separate database.
+Doctrine appends `_test` to the database name in `DATABASE_URL`: `appdb` becomes
+`appdb_test`. If `TEST_TOKEN` is set, it is appended after `_test` for worker-specific
+databases. Do not add the suffix to the URL yourself.
+
+Create `src/backend/.env.test.local` and set your local PostgreSQL credentials:
+
+```dotenv
+DATABASE_URL="postgresql://USER:PASSWORD@postgres:5432/appdb?serverVersion=18.4&charset=utf8"
+```
+
+Replace `USER` and `PASSWORD` with the credentials of your Docker PostgreSQL service.
+The example uses the Docker hostname `postgres`; use the published host and port
+if running PHP outside Docker. `.env.test.local` is ignored by Git. Symfony does
+not load `.env.local` in the `test` environment. Alternatively, provide
+`DATABASE_URL` as an environment variable, as CI does.
+
+With dependencies installed and the `backend` and `postgres` containers running,
+prepare the database from the repository root:
+
+```sh
+docker compose exec -T backend php bin/console doctrine:database:create --env=test --if-not-exists
+docker compose exec -T backend php bin/console doctrine:migrations:migrate --env=test --no-interaction
+docker compose exec -T backend php bin/console doctrine:schema:validate --env=test
+```
+
+Create the database once and rerun migrations when the schema changes. Preparation
+is separate from PHPUnit. Always use `--env=test` for these commands.
+
+### Run tests
+
+From the backend directory with a compatible local PHP installation, or inside the
+backend container:
+
+```sh
+php bin/phpunit
+```
+
+From the repository root using Docker:
+
+```sh
+# Full suite
+docker compose exec -T backend php bin/phpunit
+
+# Unit tests only; no database required
+docker compose exec -T backend php bin/phpunit tests/Unit
+
+# A specific test class
+docker compose exec -T backend php bin/phpunit --filter ProductControllerTest
+
+# Check independence from test order
+docker compose exec -T backend php bin/phpunit --order-by=random
+```
+
+### Data isolation
+
+`dama/doctrine-test-bundle` and its PHPUnit extension automatically isolate tests
+using transactions and roll back their changes between tests and at the end of
+the run. Each test creates its own fixtures; manual cleanup or a custom trait is
+not needed. The schema and migration history remain available for subsequent runs.
+
+Start with an empty test database: rollback does not remove data inserted manually
+outside the tests. PostgreSQL sequences are not rolled back, so tests must not
+depend on exact auto-increment values. Products use UUIDs.
+
+Transaction isolation covers requests made through the Symfony kernel in the same
+PHP process, not external HTTP servers or separate workers. Apply migrations before
+the suite, not inside tests. For parallel runs, prepare a separate test database
+for each worker using its `TEST_TOKEN`.
+
+The [Backend checks workflow](../../.github/workflows/backend-checks.yml) installs
+dependencies, runs PHPStan, creates and migrates the test database, validates its
+schema, and runs PHPUnit against PostgreSQL.
+
+## Static analysis
+
+Run PHPStan at level 10 for `src/` from the backend directory:
+
+```sh
+composer analyse
+```
+
+From the repository root using Docker:
+
+```sh
+docker compose exec -T backend composer analyse
+```
+
+The backend GitHub Actions workflow runs this check after installing dependencies
+and before running migrations and tests. PHPStan errors fail the job and are reported
+as GitHub annotations.

@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Web\Catalog\Adapter\Symfony\Persistence\Doctrine\Entity;
 
-use App\Web\Catalog\Adapter\Symfony\Persistence\Doctrine\Repository\ProductRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
-#[ORM\Entity(repositoryClass: ProductRepository::class, readOnly: false)]
+#[ORM\Entity(readOnly: false)]
 #[ORM\Table(name: 'product')]
 #[ORM\UniqueConstraint(name: 'uniq_product_sku', columns: ['sku'])]
 #[ORM\ChangeTrackingPolicy('DEFERRED_IMPLICIT')]
