@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Web\Catalog\Http\Api\Resource;
 
-use JsonSerializable;
-
-final readonly class Product implements JsonSerializable
+final readonly class Product implements \JsonSerializable
 {
     public function __construct(
         private string $id,

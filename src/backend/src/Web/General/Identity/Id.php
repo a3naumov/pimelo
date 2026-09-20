@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Web\General\Identity;
 
-use Stringable;
-
-final readonly class Id implements Stringable
+final readonly class Id implements \Stringable
 {
     private function __construct(private string $value)
     {

@@ -84,8 +84,8 @@ the suite, not inside tests. For parallel runs, prepare a separate test database
 for each worker using its `TEST_TOKEN`.
 
 The [Backend checks workflow](../../.github/workflows/backend-checks.yml) installs
-dependencies, runs PHPStan, creates and migrates the test database, validates its
-schema, and runs PHPUnit against PostgreSQL.
+dependencies, checks formatting, runs PHPStan, creates and migrates the test
+database, validates its schema, and runs PHPUnit against PostgreSQL.
 
 ## Static analysis
 
@@ -104,3 +104,32 @@ docker compose exec -T backend composer analyse
 The backend GitHub Actions workflow runs this check after installing dependencies
 and before running migrations and tests. PHPStan errors fail the job and are reported
 as GitHub annotations.
+
+## Code style
+
+PHP CS Fixer uses the `@Symfony` rules in `.php-cs-fixer.dist.php`. It checks PHP
+files throughout the backend, including `src/`, `tests/`, and migrations. Vendor
+dependencies, `var/`, and generated `config/bundles.php` and `config/reference.php`
+are excluded.
+
+From the backend directory:
+
+```sh
+# Apply formatting fixes
+composer format
+
+# Check formatting without changing files
+composer format:check
+```
+
+From the repository root using Docker:
+
+```sh
+docker compose exec -T backend composer format
+docker compose exec -T backend composer format:check
+```
+
+The check prints a diff and exits with a non-zero status if formatting changes
+are needed. CI runs it before PHPStan and tests; it never fixes files automatically.
+Formatting checks complement static analysis and tests; they do not replace them.
+

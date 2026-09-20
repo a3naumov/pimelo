@@ -11,7 +11,6 @@ use App\Web\Catalog\Persistence\Repository\ProductRepositoryInterface;
 use App\Web\General\Identity\Id;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
-use LogicException;
 use Symfony\Component\Uid\Uuid;
 
 final readonly class ProductRepository implements ProductRepositoryInterface
@@ -71,7 +70,7 @@ final readonly class ProductRepository implements ProductRepositoryInterface
         $entityManager = $this->registry->getManagerForClass(DoctrineProduct::class);
 
         if (!$entityManager instanceof EntityManagerInterface) {
-            throw new LogicException('No ORM entity manager is configured for Product.');
+            throw new \LogicException('No ORM entity manager is configured for Product.');
         }
 
         return $entityManager;
