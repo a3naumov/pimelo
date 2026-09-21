@@ -1,5 +1,12 @@
 services:
+  php-roadrunner:
+    profiles: [backend, notifications, media-storage, search]
+    build:
+      target: dev
+    image: ${COMPOSE_PROJECT_NAME}-php-roadrunner:dev
+
   caddy:
+    profiles: [caddy]
     command: caddy run --config /etc/caddy/Caddyfile.dev --adapter caddyfile
     volumes:
       - type: bind
@@ -8,36 +15,88 @@ services:
         read_only: true
 
   backend:
+    profiles: [backend]
+    command: rr serve -c /app/.rr.dev.yaml
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: "1"
     build:
       target: dev
       args:
         PHP_IDE_CONFIG_SERVER_NAME: ${SERVICE_BACKEND_XDEBUG_SERVER_NAME:-pimelo}
     ports:
-      - "${SERVICE_BACKEND_PORT:-8080}:80"
+      - "${SERVICE_BACKEND_PORT:-8080}:8080"
+
+  notifications:
+    profiles: [notifications]
+    command: rr serve -c /app/.rr.dev.yaml
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: "1"
+    build:
+      target: dev
+      args:
+        PHP_IDE_CONFIG_SERVER_NAME: ${SERVICE_NOTIFICATIONS_XDEBUG_SERVER_NAME:-pimelo-notifications}
+    ports:
+      - "${SERVICE_NOTIFICATIONS_PORT:-8081}:8080"
+
+  media-storage:
+    profiles: [media-storage]
+    command: rr serve -c /app/.rr.dev.yaml
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: "1"
+    build:
+      target: dev
+      args:
+        PHP_IDE_CONFIG_SERVER_NAME: ${SERVICE_MEDIA_STORAGE_XDEBUG_SERVER_NAME:-pimelo-media-storage}
+    ports:
+      - "${SERVICE_MEDIA_STORAGE_PORT:-8082}:8080"
+
+  search:
+    profiles: [search]
+    command: rr serve -c /app/.rr.dev.yaml
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: "1"
+    build:
+      target: dev
+      args:
+        PHP_IDE_CONFIG_SERVER_NAME: ${SERVICE_SEARCH_XDEBUG_SERVER_NAME:-pimelo-search}
+    ports:
+      - "${SERVICE_SEARCH_PORT:-8083}:8080"
 
   frontend:
+    profiles: [frontend]
     ports:
       - "${SERVICE_FRONTEND_PORT:-5173}:5173"
 
   postgres:
+    profiles: [backend]
     ports:
       - "${SERVICE_POSTGRES_PORT:-5432}:5432"
 
-  rabbitmq:
-    image: rabbitmq:4.3.4-management-alpine
+  kafka:
+    profiles: [backend]
+    environment:
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093,EXTERNAL://:19092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:${SERVICE_KAFKA_PORT:-9092}
     ports:
-      - "${SERVICE_RABBITMQ_PORT:-5672}:5672"
-      - "${SERVICE_RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+      - "127.0.0.1:${SERVICE_KAFKA_PORT:-9092}:19092"
 
   redis:
+    profiles: [backend]
     ports:
       - "${SERVICE_REDIS_PORT:-6379}:6379"
 
   opensearch:
+    profiles: [search]
     ports:
       - "${SERVICE_OPENSEARCH_PORT:-9200}:9200"
 
   opensearch-dashboards:
+    profiles: [search]
     container_name: ${COMPOSE_PROJECT_NAME}-opensearch-dashboards
     image: opensearchproject/opensearch-dashboards:3.7.0
     environment:
@@ -50,13 +109,15 @@ services:
     ports:
       - "${SERVICE_OPENSEARCH_DASHBOARDS_PORT:-5601}:5601"
     networks:
-      - backend
+      - search
 
   centrifugo:
+    profiles: [notifications]
     ports:
       - "${SERVICE_CENTRIFUGO_PORT:-8000}:8000"
 
   minio:
+    profiles: [media-storage]
     ports:
       - "${SERVICE_MINIO_PORT:-9000}:9000"
       - "${SERVICE_MINIO_CONSOLE_PORT:-9001}:9001"

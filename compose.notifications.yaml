@@ -1,0 +1,37 @@
+services:
+  notifications:
+    profiles: [notifications]
+    container_name: ${COMPOSE_PROJECT_NAME}-notifications
+    build:
+      context: ./docker/notifications
+      target: production
+      additional_contexts:
+        php_roadrunner: service:php-roadrunner
+    image: ${COMPOSE_PROJECT_NAME}-notifications
+    volumes:
+      - type: bind
+        source: ./src/notifications
+        target: /app
+    working_dir: /app
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+    networks:
+      - notifications
+
+  centrifugo:
+    profiles: [notifications]
+    container_name: ${COMPOSE_PROJECT_NAME}-centrifugo
+    image: centrifugo/centrifugo:v6.9.1
+    command: centrifugo
+    environment:
+      CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: ${SERVICE_CENTRIFUGO_TOKEN_HMAC_SECRET_KEY:-J7v!Q3m@R8x^K2p!L6w}
+      CENTRIFUGO_HTTP_API_KEY: ${SERVICE_CENTRIFUGO_API_KEY:-P4n!T9y@C2k^W7r!M5q}
+      CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: ${SERVICE_CENTRIFUGO_ALLOWED_ORIGINS:-http://localhost:5173}
+    networks:
+      - notifications
+
+networks:
+  notifications:
+    name: ${COMPOSE_PROJECT_NAME}-notifications
+    driver: bridge

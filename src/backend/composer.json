@@ -7,6 +7,7 @@
         "php": "^8.5",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "baldinof/roadrunner-bundle": "^3.4",
         "doctrine/doctrine-bundle": "^3.3",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.7",
@@ -85,7 +86,7 @@
     },
     "extra": {
         "symfony": {
-            "allow-contrib": false,
+            "allow-contrib": true,
             "require": "8.1.*"
         }
     }

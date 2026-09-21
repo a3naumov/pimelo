@@ -37,7 +37,11 @@ jobs:
           persist-credentials: false
 
       - name: Build backend image
-        run: docker build --target dev --tag pimelo-backend-ci docker/backend
+        run: |
+          docker build --target dev --tag pimelo-php-roadrunner-ci docker/php-roadrunner
+          docker build --target dev --tag pimelo-backend-ci \
+            --build-context php_roadrunner=docker-image://pimelo-php-roadrunner-ci \
+            docker/backend
 
       - name: Install dependencies and run backend checks
         run: |

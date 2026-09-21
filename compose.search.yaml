@@ -1,0 +1,45 @@
+services:
+  search:
+    profiles: [search]
+    container_name: ${COMPOSE_PROJECT_NAME}-search
+    build:
+      context: ./docker/search
+      target: production
+      additional_contexts:
+        php_roadrunner: service:php-roadrunner
+    image: ${COMPOSE_PROJECT_NAME}-search
+    volumes:
+      - type: bind
+        source: ./src/search
+        target: /app
+    working_dir: /app
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+    networks:
+      - search
+
+  opensearch:
+    profiles: [search]
+    container_name: ${COMPOSE_PROJECT_NAME}-opensearch
+    image: opensearchproject/opensearch:3.7.0
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${SERVICE_OPENSEARCH_ADMIN_PASSWORD:-u9!Q2v@M7r^L4x!K8p}
+    volumes:
+      - type: volume
+        source: opensearch_data
+        target: /usr/share/opensearch/data
+    networks:
+      - search
+
+volumes:
+  opensearch_data:
+    driver: local
+
+networks:
+  search:
+    name: ${COMPOSE_PROJECT_NAME}-search
+    driver: bridge

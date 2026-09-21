@@ -1,5 +1,16 @@
 services:
+  # Build dependency only; no runtime container is needed.
+  php-roadrunner:
+    profiles: [backend, notifications, media-storage, search]
+    scale: 0
+    network_mode: none
+    build:
+      context: ./docker/php-roadrunner
+      target: production
+    image: ${COMPOSE_PROJECT_NAME}-php-roadrunner:production
+
   caddy:
+    profiles: [caddy]
     container_name: ${COMPOSE_PROJECT_NAME}-caddy
     image: caddy:2.11.4-alpine
     ports:
@@ -9,131 +20,6 @@ services:
         source: ./docker/caddy/Caddyfile
         target: /etc/caddy/Caddyfile
         read_only: true
-    depends_on:
-      - backend
     networks:
+      - backend
       - frontend
-      - backend
-
-  backend:
-    container_name: ${COMPOSE_PROJECT_NAME}-backend
-    build:
-      context: ./docker/backend
-    image: ${COMPOSE_PROJECT_NAME}-backend
-    volumes:
-      - type: bind
-        source: ./src/backend
-        target: /app
-    working_dir: /app
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - backend
-
-  frontend:
-    container_name: ${COMPOSE_PROJECT_NAME}-frontend
-    image: node:24.18.1-alpine3.24
-    volumes:
-      - type: bind
-        source: ./src/frontend
-        target: /app
-    working_dir: /app
-    tty: true
-    user: 'node'
-    networks:
-      - frontend
-
-  postgres:
-    container_name: ${COMPOSE_PROJECT_NAME}-postgres
-    image: postgres:18.4-alpine3.24
-    environment:
-      POSTGRES_USER: ${SERVICE_POSTGRES_USER:-dbuser}
-      POSTGRES_PASSWORD: ${SERVICE_POSTGRES_PASSWORD:-dbpassword}
-      POSTGRES_DB: ${SERVICE_POSTGRES_DB:-appdb}
-    volumes:
-      - type: volume
-        source: postgres_data
-        target: /var/lib/postgresql
-    networks:
-      - backend
-
-  rabbitmq:
-    container_name: ${COMPOSE_PROJECT_NAME}-rabbitmq
-    image: rabbitmq:4.3.4-alpine
-    environment:
-      RABBITMQ_DEFAULT_USER: ${SERVICE_RABBITMQ_USER:-rabbitmq}
-      RABBITMQ_DEFAULT_PASS: ${SERVICE_RABBITMQ_PASSWORD:-rabbitmq}
-    ports:
-      - "${SERVICE_RABBITMQ_PORT:-5672}:5672"
-    volumes:
-      - type: volume
-        source: rabbitmq_data
-        target: /var/lib/rabbitmq
-    networks:
-      - backend
-
-  redis:
-    container_name: ${COMPOSE_PROJECT_NAME}-redis
-    image: redis:8.10.0-alpine3.23
-    networks:
-      - backend
-
-  opensearch:
-    container_name: ${COMPOSE_PROJECT_NAME}-opensearch
-    image: opensearchproject/opensearch:3.7.0
-    environment:
-      discovery.type: single-node
-      bootstrap.memory_lock: "true"
-      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
-      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${SERVICE_OPENSEARCH_ADMIN_PASSWORD:-u9!Q2v@M7r^L4x!K8p}
-    volumes:
-      - type: volume
-        source: opensearch_data
-        target: /usr/share/opensearch/data
-    networks:
-      - backend
-
-  centrifugo:
-    container_name: ${COMPOSE_PROJECT_NAME}-centrifugo
-    image: centrifugo/centrifugo:v6.9.1
-    command: centrifugo
-    environment:
-      CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: ${SERVICE_CENTRIFUGO_TOKEN_HMAC_SECRET_KEY:-J7v!Q3m@R8x^K2p!L6w}
-      CENTRIFUGO_HTTP_API_KEY: ${SERVICE_CENTRIFUGO_API_KEY:-P4n!T9y@C2k^W7r!M5q}
-      CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: ${SERVICE_CENTRIFUGO_ALLOWED_ORIGINS:-http://localhost:5173}
-    networks:
-      - frontend
-      - backend
-
-  minio:
-    container_name: ${COMPOSE_PROJECT_NAME}-minio
-    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${SERVICE_MINIO_ROOT_USER:-minio}
-      MINIO_ROOT_PASSWORD: ${SERVICE_MINIO_ROOT_PASSWORD:-u9!Q2v@M7r^L4x!K8p}
-    volumes:
-      - type: volume
-        source: minio_data
-        target: /data
-    networks:
-      - backend
-
-volumes:
-  postgres_data:
-    driver: local
-  rabbitmq_data:
-    driver: local
-  opensearch_data:
-    driver: local
-  minio_data:
-    driver: local
-
-networks:
-  frontend:
-    name: ${COMPOSE_PROJECT_NAME}-frontend
-    driver: bridge
-  backend:
-    name: ${COMPOSE_PROJECT_NAME}-backend
-    driver: bridge
