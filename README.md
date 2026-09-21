@@ -1,6 +1,33 @@
 # pimelo
 [pimelo](https://github.com/a3naumov/pimelo)
 
+## Quick start
+
+Install Docker with Compose and GNU Make. Before the first launch, copy
+`.env.example` to `.env` if it does not already exist, and configure its values.
+Install application dependencies separately; these commands manage Docker
+services and do not run Composer or npm installs.
+
+```sh
+make dev   # Build and start all profiles with development overrides
+make prod  # Build and start all profiles without development overrides
+make down  # Stop and remove containers and networks, preserving data volumes
+make help  # Show available commands (also the default for plain make)
+```
+
+The Makefile selects Compose files and enables all profiles explicitly,
+regardless of `COMPOSE_FILE` and `COMPOSE_PROFILES` in `.env`. Development adds
+`compose.dev.yaml`; production uses only the base and group configurations.
+Both launch commands build images before starting containers in the background.
+
+The two modes share the same project, containers and data volumes. Run
+`make down` before switching modes so development-only services do not remain
+running. This does not delete database or broker data.
+
+`make prod` starts the current production Compose configuration, not a complete
+deployment pipeline. The frontend container does not start Vite automatically,
+and a production frontend build is not yet mounted into Caddy's `/srv` directory.
+
 ## Docker Compose groups
 
 Keep `COMPOSE_FILE` in the root `.env` in sync with `.env.example`. Include
