@@ -9,6 +9,7 @@ use App\Catalog\Domain\Persistence\Repository\CategoryRepositoryInterface;
 use App\Catalog\Domain\Persistence\Repository\ProductCategoryRepositoryInterface;
 use App\Catalog\Domain\Persistence\Repository\ProductRepositoryInterface;
 use App\General\Identity\Id;
+use OpenApi\Attributes as OA;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -23,6 +24,7 @@ use Symfony\Component\Routing\Requirement\Requirement;
     format: 'json',
     stateless: true,
 )]
+#[OA\Tag(name: 'Product categories')]
 final class ProductCategoryController extends AbstractController
 {
     public function __construct(
@@ -34,6 +36,17 @@ final class ProductCategoryController extends AbstractController
     }
 
     #[Route(path: '/', name: 'list', methods: ['GET', 'HEAD'])]
+    #[OA\Get(summary: 'List categories linked to a product', responses: [
+        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(ref: '#/components/schemas/CategoriesResponse')),
+        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
+        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+    ])]
+    #[OA\Head(summary: 'List categories linked to a product (headers only)', responses: [
+        new OA\Response(response: 200, description: 'Same status as GET; no response body.'),
+        new OA\Response(response: 404, description: 'Resource not found; no response body.'),
+        new OA\Response(response: 500, description: 'Unexpected failure; no response body.'),
+    ])]
+    #[OA\Parameter(name: 'productId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
     public function list(string $productId): JsonResponse
     {
         try {
@@ -56,6 +69,13 @@ final class ProductCategoryController extends AbstractController
     }
 
     #[Route(path: '/{categoryId}', name: 'attach', methods: ['PUT'])]
+    #[OA\Put(summary: 'Link a category to a product; repeated requests are idempotent', responses: [
+        new OA\Response(response: 204, description: 'Completed; no response body.'),
+        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
+        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+    ])]
+    #[OA\Parameter(name: 'productId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
+    #[OA\Parameter(name: 'categoryId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
     public function attach(string $productId, string $categoryId): Response
     {
         try {
@@ -80,6 +100,13 @@ final class ProductCategoryController extends AbstractController
     }
 
     #[Route(path: '/{categoryId}', name: 'detach', methods: ['DELETE'])]
+    #[OA\Delete(summary: 'Unlink a category from a product; repeated requests are idempotent', responses: [
+        new OA\Response(response: 204, description: 'Completed; no response body.'),
+        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
+        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+    ])]
+    #[OA\Parameter(name: 'productId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
+    #[OA\Parameter(name: 'categoryId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
     public function detach(string $productId, string $categoryId): Response
     {
         try {

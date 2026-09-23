@@ -3,6 +3,7 @@
 
 /var/
 /vendor/
+/public/bundles/
 
 /.phpunit.cache/
 

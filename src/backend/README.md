@@ -2,6 +2,34 @@
 
 Symfony 8.1 application
 
+## Web API documentation
+
+Nelmio generates an OpenAPI 3.0.3 specification for products, categories,
+product-category links and the healthcheck. In `dev` and `test`, fetch
+`GET /web/api-docs.json` (by default, `http://localhost:8080/web/api-docs.json` in Docker).
+There is no documentation route in `prod`, and no UI, Twig or Asset dependency.
+The specification uses the `web` area. A separate `api` area and documentation
+route will be added when API endpoints exist; `/api/doc.json` is not registered.
+
+Export the specification from the repository root:
+
+```sh
+docker compose exec -T backend php bin/console nelmio:apidoc:dump --env=dev --area=web --format=json
+docker compose exec -T backend php bin/console nelmio:apidoc:dump --env=dev --area=web --format=yaml
+```
+
+Redirect stdout to a local file when needed; do not commit generated documents.
+Routes and request schemas are inferred from Symfony metadata. Operation
+descriptions live in infrastructure controllers; reusable response schemas live
+in `config/packages/nelmio_api_doc.yaml`. Domain and application models do not
+depend on Nelmio or OpenAPI attributes. Keep these descriptions up to date
+when changing the HTTP contract.
+
+The current development RoadRunner configuration starts a fresh worker for each
+request. If using persistent workers during development, restart those backend
+workers after changing documentation metadata so cached code/specifications are
+reloaded.
+
 ## Tests
 
 PHPUnit runs in the `test` environment using `phpunit.dist.xml`. Tests are grouped
@@ -132,4 +160,3 @@ docker compose exec -T backend composer format:check
 The check prints a diff and exits with a non-zero status if formatting changes
 are needed. CI runs it before PHPStan and tests; it never fixes files automatically.
 Formatting checks complement static analysis and tests; they do not replace them.
-

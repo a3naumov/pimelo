@@ -1,0 +1,129 @@
+when@dev: &api_doc_config
+    nelmio_api_doc:
+        type_info: true
+        documentation:
+            openapi: 3.0.3
+            info:
+                title: Pimelo Backend Web API
+                description: Product catalog, category hierarchy and product-category relationships.
+                version: 1.0.0
+            components:
+                schemas:
+                    Product:
+                        type: object
+                        required: [id, sku]
+                        properties:
+                            id: { type: string, format: uuid, example: '01994731-abcd-7000-8000-000000000001' }
+                            sku: { type: string, minLength: 1, maxLength: 255, example: 'PRODUCT-001' }
+                    Category:
+                        type: object
+                        required: [id, parent_id]
+                        properties:
+                            id: { type: string, format: uuid, example: '01994731-abcd-7000-8000-000000000002' }
+                            parent_id: { type: string, format: uuid, nullable: true, example: null }
+                    ProductResponse:
+                        type: object
+                        required: [product]
+                        properties:
+                            product: { $ref: '#/components/schemas/Product' }
+                    ProductsResponse:
+                        type: object
+                        required: [products]
+                        properties:
+                            products:
+                                type: array
+                                items: { $ref: '#/components/schemas/Product' }
+                    CategoryResponse:
+                        type: object
+                        required: [category]
+                        properties:
+                            category: { $ref: '#/components/schemas/Category' }
+                    CategoriesResponse:
+                        type: object
+                        required: [categories]
+                        properties:
+                            categories:
+                                type: array
+                                items: { $ref: '#/components/schemas/Category' }
+                    HealthcheckResponse:
+                        type: object
+                        required: [status]
+                        properties:
+                            status: { type: string, enum: [ok], example: ok }
+                    Error:
+                        type: object
+                        required: [error]
+                        properties:
+                            error: { type: string, example: 'Category not found.' }
+                    Problem:
+                        type: object
+                        description: Symfony error response; debug environments may include additional diagnostic fields.
+                        required: [type, title, status, detail]
+                        properties:
+                            type: { type: string, format: uri }
+                            title: { type: string }
+                            status: { type: integer }
+                            detail: { type: string }
+                            violations:
+                                type: array
+                                items:
+                                    type: object
+                                    required: [propertyPath, title]
+                                    properties:
+                                        propertyPath: { type: string }
+                                        title: { type: string }
+                responses:
+                    NotFound:
+                        description: Resource not found. A malformed UUID is rejected by routing with a Symfony error response.
+                        content:
+                            application/json:
+                                schema:
+                                    oneOf:
+                                        - { $ref: '#/components/schemas/Error' }
+                                        - { $ref: '#/components/schemas/Problem' }
+                    SkuConflict:
+                        description: A product with this SKU already exists.
+                        content:
+                            application/json:
+                                schema: { $ref: '#/components/schemas/Error' }
+                                example: { error: 'A product with this SKU already exists.' }
+                    HierarchyConflict:
+                        description: The requested parent is the category itself or a descendant, or the existing hierarchy contains a cycle.
+                        content:
+                            application/json:
+                                schema: { $ref: '#/components/schemas/Error' }
+                    CategoryHasChildren:
+                        description: A category with children cannot be deleted. Move its children first.
+                        content:
+                            application/json:
+                                schema: { $ref: '#/components/schemas/Error' }
+                    BadRequest:
+                        description: Malformed JSON.
+                        content:
+                            application/json:
+                                schema: { $ref: '#/components/schemas/Problem' }
+                    UnsupportedMediaType:
+                        description: The request body must use application/json.
+                        content:
+                            application/json:
+                                schema: { $ref: '#/components/schemas/Problem' }
+                    ValidationFailed:
+                        description: Missing or invalid request properties.
+                        content:
+                            application/json:
+                                schema: { $ref: '#/components/schemas/Problem' }
+                    InternalServerError:
+                        description: Unexpected failure. Details are logged and are not included in the response.
+                        content:
+                            application/json:
+                                schema: { $ref: '#/components/schemas/Error' }
+                                example: { error: 'Internal server error.' }
+        areas:
+            web: &web_api_doc_area
+                path_patterns:
+                    - '^/web/(?!api-docs\.json$)'
+                    - '^/$'
+            # Nelmio requires a default area; keep it identical to Web, not all routes.
+            default: *web_api_doc_area
+
+when@test: *api_doc_config

@@ -1,0 +1,10 @@
+when@dev: &api_doc_routes
+    app.web.api_doc:
+        path: /web/api-docs.json
+        methods: [GET]
+        defaults:
+            _controller: nelmio_api_doc.controller.swagger
+            _format: json
+            area: web
+
+when@test: *api_doc_routes
