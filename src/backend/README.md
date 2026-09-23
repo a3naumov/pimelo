@@ -2,6 +2,31 @@
 
 Symfony 8.1 application
 
+## Checks before pushing
+
+Run the same application checks as GitHub Actions from the backend directory:
+
+```sh
+composer check
+```
+
+Or from the repository root with the backend and PostgreSQL containers running:
+
+```sh
+docker compose exec -T backend composer check
+```
+
+The command checks formatting without changing files, runs PHPStan, creates the
+test database if missing, applies pending test migrations, validates the Doctrine
+schema and runs PHPUnit, in that order. It stops at the first failed step and
+returns a non-zero exit code. In particular, PHPUnit does not run if PHPStan fails.
+
+Install dependencies first with `composer install` and configure the test database
+as described below. Database commands explicitly use `--env=test` and Doctrine's
+`_test` suffix; they do not reset or drop the database. They can create the test
+database and modify its schema through migrations. Docker image builds and
+dependency installation remain separate setup steps, as in CI.
+
 ## Web API documentation
 
 Nelmio generates an OpenAPI 3.0.3 specification for products, categories,
@@ -112,8 +137,7 @@ the suite, not inside tests. For parallel runs, prepare a separate test database
 for each worker using its `TEST_TOKEN`.
 
 The [Backend checks workflow](../../.github/workflows/backend-checks.yml) installs
-dependencies, checks formatting, runs PHPStan, creates and migrates the test
-database, validates its schema, and runs PHPUnit against PostgreSQL.
+dependencies and runs the same `composer check` command against PostgreSQL.
 
 ## Static analysis
 
@@ -130,8 +154,7 @@ docker compose exec -T backend composer analyse
 ```
 
 The backend GitHub Actions workflow runs this check after installing dependencies
-and before running migrations and tests. PHPStan errors fail the job and are reported
-as GitHub annotations.
+and before running migrations and tests. PHPStan errors fail the job.
 
 ## Code style
 

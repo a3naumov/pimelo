@@ -176,6 +176,7 @@ final class CategoryController extends AbstractController
     {
         $this->logger->error('Unexpected catalog request failure.', ['exception' => $exception]);
 
+        // @phpstan-ignore missingType.checkedException (The fixed HTTP 500 status is valid.)
         return new JsonResponse(
             data: ['error' => 'Internal server error.'],
             status: Response::HTTP_INTERNAL_SERVER_ERROR,
