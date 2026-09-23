@@ -120,6 +120,41 @@ docker compose exec -T backend php bin/phpunit --filter ProductControllerTest
 docker compose exec -T backend php bin/phpunit --order-by=random
 ```
 
+### Code coverage
+
+Use `composer coverage` to rerun the full test suite and regenerate coverage for `src/`.
+The script enables Xdebug coverage mode for its PHPUnit subprocess; no manual
+`XDEBUG_MODE` setting is required. Dependencies, Xdebug and the prepared test
+database described above are required. The script does not create or migrate databases.
+
+From the backend directory:
+
+```sh
+composer coverage
+composer coverage -- --coverage-html var/coverage/html
+composer coverage -- --coverage-clover var/coverage/clover.xml
+composer coverage -- --coverage-cobertura var/coverage/cobertura.xml
+```
+
+From the repository root using Docker:
+
+```sh
+docker compose exec -T backend composer coverage
+docker compose exec -T backend composer coverage -- --coverage-html var/coverage/html
+docker compose exec -T backend composer coverage -- --coverage-clover var/coverage/clover.xml
+docker compose exec -T backend composer coverage -- --coverage-cobertura var/coverage/cobertura.xml
+```
+
+Text coverage is always printed to the terminal. Arguments after `--` are passed
+to PHPUnit; multiple report options can be combined in one run.
+With the paths shown above, HTML is written to
+`src/backend/var/coverage/html/index.html` on the host; XML reports are written to
+`src/backend/var/coverage/clover.xml` and `src/backend/var/coverage/cobertura.xml`.
+Rerunning a format overwrites its report; `var/` is ignored by Git.
+The script returns PHPUnit's exit code, so test failures
+are not hidden by report generation. Coverage measures executed code, not whether
+every business scenario has been asserted.
+
 ### Data isolation
 
 `dama/doctrine-test-bundle` and its PHPUnit extension automatically isolate tests
