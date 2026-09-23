@@ -17,8 +17,8 @@ doctrine:
             Catalog:
                 type: attribute
                 is_bundle: false
-                dir: '%kernel.project_dir%/src/Catalog/Adapter/Symfony/Persistence/Doctrine/Entity'
-                prefix: 'App\Catalog\Adapter\Symfony\Persistence\Doctrine\Entity'
+                dir: '%kernel.project_dir%/src/Catalog/Infrastructure/Persistence/Doctrine/Entity'
+                prefix: 'App\Catalog\Infrastructure\Persistence\Doctrine\Entity'
                 alias: Catalog
 
 when@test:
