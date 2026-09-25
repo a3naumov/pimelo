@@ -4,86 +4,61 @@ declare(strict_types=1);
 
 namespace App\Catalog\Infrastructure\Persistence\Doctrine\Entity;
 
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Gedmo\Mapping\Annotation as Gedmo;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(readOnly: false)]
 #[ORM\Table(name: 'product')]
 #[ORM\UniqueConstraint(name: 'uniq_product_sku', columns: ['sku'])]
+#[Gedmo\SoftDeleteable(fieldName: 'deletedAt', timeAware: false, hardDelete: false)]
 final class Product
 {
-    #[ORM\Id]
-    #[ORM\GeneratedValue(strategy: 'NONE')]
-    #[ORM\Column(
-        name: 'id',
-        type: UuidType::NAME,
-        nullable: false,
-        insertable: true,
-        updatable: false,
-    )]
-    private readonly Uuid $id;
+    public function __construct(
+        #[ORM\Id]
+        #[ORM\GeneratedValue(strategy: 'NONE')]
+        #[ORM\Column(
+            name: 'id',
+            type: UuidType::NAME,
+            nullable: false,
+            insertable: true,
+            updatable: false,
+        )]
+        public private(set) Uuid $id {
+            get => $this->id;
+        },
 
-    #[ORM\Column(
-        name: 'sku',
-        type: Types::STRING,
-        length: 255,
-        nullable: false,
-        insertable: true,
-        updatable: true,
-    )]
-    private string $sku;
+        #[ORM\Column(
+            name: 'sku',
+            type: Types::STRING,
+            length: 255,
+            nullable: false,
+            insertable: true,
+            updatable: true,
+        )]
+        public string $sku {
+            get => $this->sku;
+            set => $value;
+        },
 
-    /** @var Collection<int, Category> */
-    #[ORM\ManyToMany(targetEntity: Category::class, inversedBy: 'products', fetch: 'LAZY')]
-    #[ORM\JoinTable(name: 'product_category')]
-    #[ORM\JoinColumn(name: 'product_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
-    #[ORM\InverseJoinColumn(name: 'category_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
-    private Collection $categories;
+        #[ORM\Column(name: 'deleted_at', type: Types::DATETIMETZ_IMMUTABLE, nullable: true, insertable: true, updatable: true)]
+        public private(set) ?\DateTimeImmutable $deletedAt = null {
+            get => $this->deletedAt;
+        },
 
-    public function __construct(Uuid $id, string $sku)
-    {
-        $this->id = $id;
-        $this->sku = $sku;
-        $this->categories = new ArrayCollection();
-    }
+        #[ORM\Column(name: 'created_at', type: Types::DATETIMETZ_IMMUTABLE, nullable: false, insertable: true, updatable: false)]
+        #[Gedmo\Timestampable(on: 'create')]
+        public private(set) ?\DateTimeImmutable $createdAt = null {
+            get => $this->createdAt;
+        },
 
-    public function getId(): Uuid
-    {
-        return $this->id;
-    }
-
-    public function getSku(): string
-    {
-        return $this->sku;
-    }
-
-    public function setSku(string $sku): void
-    {
-        $this->sku = $sku;
-    }
-
-    /** @return Collection<int, Category> */
-    public function getCategories(): Collection
-    {
-        return $this->categories;
-    }
-
-    public function addCategory(Category $category): void
-    {
-        if (!$this->categories->contains($category)) {
-            $this->categories->add($category);
-            $category->addProduct($this);
-        }
-    }
-
-    public function removeCategory(Category $category): void
-    {
-        if ($this->categories->removeElement($category)) {
-            $category->removeProduct($this);
-        }
+        #[ORM\Column(name: 'updated_at', type: Types::DATETIMETZ_IMMUTABLE, nullable: false, insertable: true, updatable: true)]
+        #[Gedmo\Timestampable(on: 'update')]
+        public private(set) ?\DateTimeImmutable $updatedAt = null {
+            get => $this->updatedAt;
+        },
+    ) {
     }
 }

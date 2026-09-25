@@ -8,6 +8,7 @@ use App\Catalog\Domain\Entity\Category;
 use App\Catalog\Domain\Entity\Product;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\Category as DoctrineCategory;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\Product as DoctrineProduct;
+use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\ProductCategory;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Mapper\CategoryMapper;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Mapper\ProductMapper;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Repository\CategoryRepository;
@@ -16,7 +17,6 @@ use App\Catalog\Infrastructure\Persistence\Doctrine\Repository\ProductRepository
 use App\Catalog\Infrastructure\Persistence\Doctrine\Transaction\DoctrineCategoryHierarchyTransaction;
 use App\General\Adapter\Symfony\Identity\UuidGenerator;
 use App\General\Identity\Id;
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -27,6 +27,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 #[CoversClass(ProductCategoryRepository::class)]
 #[UsesClass(DoctrineCategory::class)]
 #[UsesClass(DoctrineProduct::class)]
+#[UsesClass(ProductCategory::class)]
 #[UsesClass(CategoryMapper::class)]
 #[UsesClass(ProductMapper::class)]
 #[UsesClass(CategoryRepository::class)]
@@ -63,11 +64,37 @@ final class ProductCategoryRepositoryTest extends KernelTestCase
     {
         $this->repository->attach($this->product, $this->category);
         $this->entityManager->clear();
-        self::getContainer()->get(ProductRepository::class)->save(new Product($this->product->getId(), 'updated'));
+        self::getContainer()->get(ProductRepository::class)->save(new Product($this->product->id, 'updated'));
         self::getContainer()->get(CategoryRepository::class)->save($this->category);
         $this->entityManager->clear();
 
         self::assertEquals([$this->category], $this->repository->findCategories($this->product));
+    }
+
+    // ========================================================================
+    // Link lifecycle: repeated operations affect only the requested UUID pair
+    // ========================================================================
+
+    public function testAttachAndDetachAreIdempotentAndPreserveOtherLinks(): void
+    {
+        $other = self::getContainer()->get(CategoryRepository::class)->save(new Category(new UuidGenerator()->generate()));
+        $this->repository->attach($this->product, $other);
+
+        for ($attempt = 0; $attempt < 2; ++$attempt) {
+            $this->repository->attach($this->product, $this->category);
+            $this->repository->attach($this->product, $this->category);
+            $this->entityManager->clear();
+
+            self::assertCount(2, $this->repository->findCategories($this->product));
+            self::assertCount(2, $this->entityManager->getRepository(ProductCategory::class)->findAll());
+
+            $this->repository->detach($this->product, $this->category);
+            $this->repository->detach($this->product, $this->category);
+            $this->entityManager->clear();
+
+            self::assertEquals([$other], $this->repository->findCategories($this->product));
+            self::assertCount(1, $this->entityManager->getRepository(ProductCategory::class)->findAll());
+        }
     }
 
     // ========================================================================
@@ -88,8 +115,21 @@ final class ProductCategoryRepositoryTest extends KernelTestCase
         $this->repository->attach($missingProduct, $this->category);
     }
 
+    public function testAttachRejectsAMissingCategoryWithoutCreatingLinks(): void
+    {
+        $missingCategory = new Category(new UuidGenerator()->generate());
+
+        $this->expectException(\LogicException::class);
+
+        try {
+            $this->repository->attach($this->product, $missingCategory);
+        } finally {
+            self::assertSame(0, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM product_category'));
+        }
+    }
+
     // ========================================================================
-    // Constraints: PostgreSQL forbids duplicate links and dangling references
+    // Constraints: PostgreSQL forbids duplicate links
     // ========================================================================
 
     public function testDatabaseRejectsDuplicateLinks(): void
@@ -99,41 +139,85 @@ final class ProductCategoryRepositoryTest extends KernelTestCase
         $this->expectException(UniqueConstraintViolationException::class);
 
         $this->entityManager->getConnection()->insert('product_category', [
-            'product_id' => $this->product->getId()->toString(),
-            'category_id' => $this->category->getId()->toString(),
+            'product_id' => $this->product->id->toString(),
+            'category_id' => $this->category->id->toString(),
         ]);
     }
 
+    // ========================================================================
+    // Soft deletion: hides relations without deleting links or the other entity
+    // ========================================================================
+
     #[DataProvider('relationColumns')]
-    public function testDatabaseRejectsDanglingReferences(string $column): void
+    public function testSoftDeletionPreservesAndHidesCachedRelations(string $table): void
     {
-        $values = ['product_id' => $this->product->getId()->toString(), 'category_id' => $this->category->getId()->toString()];
-        $values[$column.'_id'] = new UuidGenerator()->generate()->toString();
+        $this->repository->attach($this->product, $this->category);
+        self::assertEquals([$this->category], $this->repository->findCategories($this->product));
+        self::assertCount(1, $this->entityManager->getRepository(ProductCategory::class)->findAll());
 
-        $this->expectException(ForeignKeyConstraintViolationException::class);
+        if ('product' === $table) {
+            self::getContainer()->get(ProductRepository::class)->delete($this->product);
+            self::assertNotNull(self::getContainer()->get(CategoryRepository::class)->findById($this->category->id));
+        } else {
+            self::getContainer()->get(CategoryRepository::class)->delete($this->category);
+            self::assertNotNull(self::getContainer()->get(ProductRepository::class)->findById($this->product->id));
+        }
 
-        $this->entityManager->getConnection()->insert('product_category', $values);
+        self::assertSame([], $this->repository->findCategories($this->product));
+        $this->repository->detach($this->product, $this->category);
+        self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM product_category'));
+        $this->entityManager->clear();
+        self::assertSame([], $this->repository->findCategories($this->product));
+
+        self::assertCount(1, $this->entityManager->getRepository(ProductCategory::class)->findAll());
+    }
+
+    #[DataProvider('relationColumns')]
+    public function testAttachRejectsDeletedEntitiesEvenWhenCached(string $table): void
+    {
+        if ('product' === $table) {
+            self::getContainer()->get(ProductRepository::class)->delete($this->product);
+        } else {
+            self::getContainer()->get(CategoryRepository::class)->delete($this->category);
+        }
+
+        $this->expectException(\LogicException::class);
+
+        $this->repository->attach($this->product, $this->category);
     }
 
     // ========================================================================
-    // Cascades: deleting either row removes links, never the opposite entity
+    // Gedmo: regular ORM removal is also soft and never cascades to link rows
     // ========================================================================
 
     #[DataProvider('relationColumns')]
-    public function testDatabaseCascadesOnlyRelationRows(string $table): void
+    public function testDoctrineRemovalUsesSoftDeleteableListener(string $table): void
     {
         $this->repository->attach($this->product, $this->category);
+        $class = 'product' === $table ? DoctrineProduct::class : DoctrineCategory::class;
+        $id = 'product' === $table ? $this->product->id->toString() : $this->category->id->toString();
+        $stored = $this->entityManager->find($class, $id);
+
+        $this->entityManager->remove($stored);
+        $this->entityManager->flush();
         $this->entityManager->clear();
-        $id = 'product' === $table ? $this->product->getId() : $this->category->getId();
-        $connection = $this->entityManager->getConnection();
 
-        $connection->delete($table, ['id' => $id->toString()]);
+        self::assertNull($this->entityManager->find($class, $id));
+        self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM '.$table.' WHERE deleted_at IS NOT NULL'));
+        self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM product_category'));
+        self::assertSame([], $this->repository->findCategories($this->product));
 
-        self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM product_category'));
-        if ('product' === $table) {
-            self::assertNotNull(self::getContainer()->get(CategoryRepository::class)->findById($this->category->getId()));
-        } else {
-            self::assertNotNull(self::getContainer()->get(ProductRepository::class)->findById($this->product->getId()));
+        $filters = $this->entityManager->getFilters();
+        $filters->suspend('softdeleteable');
+        try {
+            $stored = $this->entityManager->find($class, $id);
+            $this->entityManager->remove($stored);
+            $this->entityManager->flush();
+
+            self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM '.$table));
+            self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM product_category'));
+        } finally {
+            $filters->restore('softdeleteable');
         }
     }
 

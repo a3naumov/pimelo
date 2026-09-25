@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Catalog\Infrastructure\Presentation\Http\Web\Controller;
 
-use App\Catalog\Application\Presentation\Http\Web\Resource\Product as ProductResource;
 use App\Catalog\Domain\Entity\Product;
 use App\Catalog\Domain\Persistence\Repository\ProductRepositoryInterface;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Product\CreateProductRequest;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\Product as ProductResource;
+use App\General\Adapter\Symfony\Http\OpenApi\ErrorResponse;
 use App\General\Identity\Id;
 use App\General\Identity\IdGeneratorInterface;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Nelmio\ApiDocBundle\Attribute\Model;
 use OpenApi\Attributes as OA;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -33,8 +35,8 @@ final class ProductController extends AbstractController
 
     #[Route(path: '/', name: 'list', methods: ['GET', 'HEAD'])]
     #[OA\Get(summary: 'List products', responses: [
-        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(ref: '#/components/schemas/ProductsResponse')),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['products'], properties: [new OA\Property(property: 'products', type: 'array', items: new OA\Items(ref: new Model(type: ProductResource::class)))])),
+        new ErrorResponse(response: 500),
     ])]
     #[OA\Head(summary: 'List products (headers only)', responses: [
         new OA\Response(response: 200, description: 'Same status as GET; no response body.'),
@@ -46,7 +48,7 @@ final class ProductController extends AbstractController
             $products = [];
 
             foreach ($this->productRepository->findAll() as $product) {
-                $products[] = new ProductResource(id: $product->getId()->toString(), sku: $product->getSku());
+                $products[] = new ProductResource(id: $product->id->toString(), sku: $product->sku);
             }
 
             return $this->json(['products' => $products]);
@@ -57,9 +59,9 @@ final class ProductController extends AbstractController
 
     #[Route(path: '/{id}', name: 'show', requirements: ['id' => '(?i:'.Requirement::UUID.')'], methods: ['GET', 'HEAD'])]
     #[OA\Get(summary: 'Get a product', responses: [
-        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(ref: '#/components/schemas/ProductResponse')),
-        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['product'], properties: [new OA\Property(property: 'product', ref: new Model(type: ProductResource::class))])),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 500),
     ])]
     #[OA\Head(summary: 'Get a product (headers only)', responses: [
         new OA\Response(response: 200, description: 'Same status as GET; no response body.'),
@@ -77,7 +79,7 @@ final class ProductController extends AbstractController
             }
 
             return $this->json([
-                'product' => new ProductResource(id: $product->getId()->toString(), sku: $product->getSku()),
+                'product' => new ProductResource(id: $product->id->toString(), sku: $product->sku),
             ]);
         } catch (\Throwable $exception) {
             return $this->serverError($exception);
@@ -86,12 +88,12 @@ final class ProductController extends AbstractController
 
     #[Route(path: '/', name: 'create', methods: ['POST'])]
     #[OA\Post(summary: 'Create a product with a unique SKU', responses: [
-        new OA\Response(response: 201, description: 'Successful response.', content: new OA\JsonContent(ref: '#/components/schemas/ProductResponse')),
-        new OA\Response(ref: '#/components/responses/BadRequest', response: 400),
-        new OA\Response(ref: '#/components/responses/SkuConflict', response: 409),
-        new OA\Response(ref: '#/components/responses/UnsupportedMediaType', response: 415),
-        new OA\Response(ref: '#/components/responses/ValidationFailed', response: 422),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new OA\Response(response: 201, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['product'], properties: [new OA\Property(property: 'product', ref: new Model(type: ProductResource::class))])),
+        new ErrorResponse(response: 400),
+        new ErrorResponse(response: 409, description: 'A product with this SKU already exists, including soft-deleted products.', example: 'A product with this SKU already exists.'),
+        new ErrorResponse(response: 415),
+        new ErrorResponse(response: 422),
+        new ErrorResponse(response: 500),
     ])]
     public function create(#[MapRequestPayload(acceptFormat: 'json')] CreateProductRequest $request): JsonResponse
     {
@@ -99,7 +101,7 @@ final class ProductController extends AbstractController
             $product = $this->productRepository->save(new Product(id: $this->idGenerator->generate(), sku: $request->sku));
 
             return $this->json([
-                'product' => new ProductResource(id: $product->getId()->toString(), sku: $product->getSku()),
+                'product' => new ProductResource(id: $product->id->toString(), sku: $product->sku),
             ], Response::HTTP_CREATED);
         } catch (UniqueConstraintViolationException) {
             return $this->json(['error' => 'A product with this SKU already exists.'], Response::HTTP_CONFLICT);
@@ -109,10 +111,10 @@ final class ProductController extends AbstractController
     }
 
     #[Route(path: '/{id}', name: 'delete', requirements: ['id' => '(?i:'.Requirement::UUID.')'], methods: ['DELETE'])]
-    #[OA\Delete(summary: 'Delete a product and its category links', responses: [
+    #[OA\Delete(summary: 'Soft-delete a product, preserving its SKU and category links', responses: [
         new OA\Response(response: 204, description: 'Completed; no response body.'),
-        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 500),
     ])]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
     public function delete(string $id): Response

@@ -17,12 +17,16 @@ use App\Catalog\Infrastructure\Persistence\Doctrine\Repository\CategoryRepositor
 use App\Catalog\Infrastructure\Persistence\Doctrine\Transaction\DoctrineCategoryHierarchyTransaction;
 use App\General\Adapter\Symfony\Identity\UuidGenerator;
 use App\General\Identity\Id;
+use Doctrine\Common\EventManager;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Doctrine\Persistence\ManagerRegistry;
+use Gedmo\SoftDeleteable\SoftDeleteableListener;
+use Gedmo\Timestampable\TimestampableListener;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -42,10 +46,11 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
 {
     // ========================================================================
-    // Concurrency: opposing moves cannot both commit, even with cached ancestors
+    // Concurrency: moves recheck the hierarchy after competing moves or deletes
     // ========================================================================
 
-    public function testConcurrentOpposingMovesCannotCreateCycle(): void
+    #[DataProvider('competingOperations')]
+    public function testConcurrentHierarchyChangesAreSerialized(string $operation, string $expected): void
     {
         self::bootKernel();
         $template = self::getContainer()->get(EntityManagerInterface::class);
@@ -61,7 +66,11 @@ final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
         try {
             $connection->executeStatement('SET search_path TO '.$quotedSchema);
             $connection->executeStatement("SET statement_timeout TO '8s'");
-            $manager = new EntityManager($connection, $template->getConfiguration());
+            $events = new EventManager();
+            $events->addEventSubscriber(new SoftDeleteableListener());
+            $events->addEventSubscriber(new TimestampableListener());
+            $manager = new EntityManager($connection, $template->getConfiguration(), $events);
+            $manager->getFilters()->enable('softdeleteable');
             new SchemaTool($manager)->createSchema($manager->getMetadataFactory()->getAllMetadata());
             $registry = $this->createStub(ManagerRegistry::class);
             $registry->method('getManagerForClass')->willReturn($manager);
@@ -71,6 +80,7 @@ final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
             $generator = new UuidGenerator();
             $first = $repository->save(new Category($generator->generate()));
             $second = $repository->save(new Category($generator->generate()));
+            $leaf = $repository->save(new Category($generator->generate(), $first->id));
 
             $connection->beginTransaction();
             $connection->executeStatement('LOCK TABLE category IN SHARE ROW EXCLUSIVE MODE');
@@ -78,8 +88,8 @@ final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
                 PHP_BINARY,
                 __DIR__.'/CategoryMoveWorker.php',
                 $schema,
-                $first->getId()->toString(),
-                $second->getId()->toString(),
+                $first->id->toString(),
+                $second->id->toString(),
             ], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
             self::assertIsResource($process);
             fclose($pipes[0]);
@@ -99,18 +109,33 @@ final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
             } while (!$blocked && microtime(true) < $deadline);
             self::assertTrue($blocked, 'The competing move must wait before reading the hierarchy.');
 
-            $handler(new MoveCategoryCommand($second->getId(), $first->getId()));
+            if ('move' === $operation) {
+                $handler(new MoveCategoryCommand($second->id, $first->id));
+            } else {
+                $repository->delete('delete_category' === $operation ? $first : $second);
+            }
             $connection->commit();
 
-            self::assertSame("conflict\n", fgets($pipes[1]));
+            self::assertSame($expected."\n", fgets($pipes[1]));
             self::assertSame('', stream_get_contents($pipes[2]));
             fclose($pipes[1]);
             fclose($pipes[2]);
             self::assertSame(0, proc_close($process));
             $process = null;
             $manager->clear();
-            self::assertNull($repository->findById($first->getId())->getParentId());
-            self::assertEquals($first->getId(), $repository->findById($second->getId())->getParentId());
+            if ('move' === $operation) {
+                self::assertNull($repository->findById($first->id)->parentId);
+                self::assertEquals($first->id, $repository->findById($second->id)->parentId);
+            } elseif ('delete_category' === $operation) {
+                self::assertNull($repository->findById($first->id));
+                self::assertNull($repository->findById($leaf->id));
+                self::assertNull($repository->findById($second->id)->parentId);
+            } else {
+                self::assertNull($repository->findById($second->id));
+                self::assertNull($repository->findById($first->id)->parentId);
+                self::assertEquals($first->id, $repository->findById($leaf->id)->parentId);
+            }
+            self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM category child INNER JOIN category parent ON child.parent_id = parent.id WHERE child.deleted_at IS NULL AND parent.deleted_at IS NOT NULL'));
         } finally {
             if ($connection->isTransactionActive()) {
                 $connection->rollBack();
@@ -127,5 +152,16 @@ final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
             $connection->executeStatement('DROP SCHEMA '.$quotedSchema.' CASCADE');
             $connection->close();
         }
+    }
+
+    // ========================================================================
+    // Data providers
+    // ========================================================================
+
+    public static function competingOperations(): iterable
+    {
+        yield 'opposing move' => ['move', 'conflict'];
+        yield 'deleted category' => ['delete_category', 'missing'];
+        yield 'deleted destination' => ['delete_parent', 'missing'];
     }
 }

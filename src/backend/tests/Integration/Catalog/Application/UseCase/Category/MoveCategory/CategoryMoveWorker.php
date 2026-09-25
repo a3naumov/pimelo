@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryCommand;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryHandler;
+use App\Catalog\Domain\Exception\Category\CategoryNotFoundException;
 use App\Catalog\Domain\Exception\Category\InvalidCategoryHierarchyException;
 use App\Catalog\Domain\Persistence\Repository\CategoryRepositoryInterface;
 use App\General\Identity\Id;
@@ -39,6 +40,8 @@ try {
     echo 'moved'.PHP_EOL;
 } catch (InvalidCategoryHierarchyException) {
     echo 'conflict'.PHP_EOL;
+} catch (CategoryNotFoundException) {
+    echo 'missing'.PHP_EOL;
 } finally {
     $kernel->shutdown();
 }

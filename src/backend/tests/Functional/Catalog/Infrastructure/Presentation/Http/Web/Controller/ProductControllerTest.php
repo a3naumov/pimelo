@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Catalog\Infrastructure\Presentation\Http\Web\Controller;
 
-use App\Catalog\Application\Presentation\Http\Web\Resource\Product as ProductResource;
 use App\Catalog\Domain\Entity\Product;
 use App\Catalog\Domain\Persistence\Repository\ProductRepositoryInterface;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\Product as DoctrineProduct;
@@ -12,6 +11,7 @@ use App\Catalog\Infrastructure\Persistence\Doctrine\Mapper\ProductMapper;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Repository\ProductRepository;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Controller\ProductController;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Product\CreateProductRequest;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\Product as ProductResource;
 use App\General\Adapter\Symfony\Identity\UuidGenerator;
 use App\General\Identity\Id;
 use App\General\Identity\IdGeneratorInterface;
@@ -75,8 +75,8 @@ final class ProductControllerTest extends WebTestCase
         $data = $this->responseData();
         self::assertSame(['products'], array_keys($data));
         self::assertEqualsCanonicalizing([
-            ['id' => $first->getId()->toString(), 'sku' => 'product-1'],
-            ['id' => $second->getId()->toString(), 'sku' => 'product-2'],
+            ['id' => $first->id->toString(), 'sku' => 'product-1'],
+            ['id' => $second->id->toString(), 'sku' => 'product-2'],
         ], $data['products']);
     }
 
@@ -105,7 +105,7 @@ final class ProductControllerTest extends WebTestCase
     {
         $product = $this->createProduct('product-1');
 
-        $this->client->request('HEAD', '/web/products/'.$product->getId());
+        $this->client->request('HEAD', '/web/products/'.$product->id);
 
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
@@ -120,12 +120,12 @@ final class ProductControllerTest extends WebTestCase
     {
         $product = $this->createProduct('product-1');
 
-        $this->client->request('GET', '/web/products/'.$product->getId());
+        $this->client->request('GET', '/web/products/'.$product->id);
 
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
         self::assertSame([
-            'product' => ['id' => $product->getId()->toString(), 'sku' => 'product-1'],
+            'product' => ['id' => $product->id->toString(), 'sku' => 'product-1'],
         ], $this->responseData());
     }
 
@@ -133,11 +133,11 @@ final class ProductControllerTest extends WebTestCase
     {
         $product = $this->createProduct('product-1');
 
-        $this->client->request('GET', '/web/products/'.strtoupper($product->getId()->toString()));
+        $this->client->request('GET', '/web/products/'.strtoupper($product->id->toString()));
 
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
         self::assertSame([
-            'product' => ['id' => $product->getId()->toString(), 'sku' => 'product-1'],
+            'product' => ['id' => $product->id->toString(), 'sku' => 'product-1'],
         ], $this->responseData());
     }
 
@@ -161,8 +161,8 @@ final class ProductControllerTest extends WebTestCase
         $this->entityManager->clear();
         $saved = $this->repository->findById(Id::fromString($data['product']['id']));
         self::assertNotNull($saved);
-        self::assertSame($data['product']['id'], $saved->getId()->toString());
-        self::assertSame($expectedSku, $saved->getSku());
+        self::assertSame($data['product']['id'], $saved->id->toString());
+        self::assertSame($expectedSku, $saved->sku);
         self::assertCount(1, $this->repository->findAll());
     }
 
@@ -234,30 +234,49 @@ final class ProductControllerTest extends WebTestCase
         self::assertSame(['error' => 'A product with this SKU already exists.'], $this->responseData());
         self::assertSame(1, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM product'));
 
-        $this->client->request('GET', '/web/products/'.$product->getId());
+        $this->client->request('GET', '/web/products/'.$product->id);
 
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
         self::assertSame([
-            'product' => ['id' => $product->getId()->toString(), 'sku' => 'existing-product'],
+            'product' => ['id' => $product->id->toString(), 'sku' => 'existing-product'],
         ], $this->responseData());
     }
 
     // ========================================================================
-    // DELETE /{id}: removes the requested product and preserves other products
+    // DELETE /{id}: hides the requested product while preserving its row and SKU
     // ========================================================================
 
-    public function testDeleteRemovesPersistedProduct(): void
+    public function testDeleteHidesPersistedProduct(): void
     {
         $product = $this->createProduct('product-1');
         $other = $this->createProduct('product-2');
 
-        $this->client->request('DELETE', '/web/products/'.$product->getId());
+        $this->client->request('DELETE', '/web/products/'.$product->id);
 
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
         self::assertSame('', $this->client->getResponse()->getContent());
         $this->entityManager->clear();
-        self::assertNull($this->repository->findById($product->getId()));
+        self::assertNull($this->repository->findById($product->id));
         self::assertEquals([$other], $this->repository->findAll());
+    }
+
+    public function testDeletedProductReturnsNotFoundAndItsSkuRemainsReserved(): void
+    {
+        $product = $this->createProduct('reserved');
+        $this->client->request('DELETE', '/web/products/'.$product->id);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+
+        foreach (['GET', 'HEAD', 'DELETE'] as $method) {
+            $this->client->request($method, '/web/products/'.$product->id);
+            self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        }
+        $this->client->request('GET', '/web/products/');
+        self::assertResponseIsSuccessful();
+        self::assertSame(['products' => []], $this->responseData());
+        self::assertSame('reserved', $this->entityManager->getConnection()->fetchOne('SELECT sku FROM product WHERE id = ?', [$product->id->toString()]));
+
+        $this->client->jsonRequest('POST', '/web/products/', ['sku' => 'reserved']);
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     // ========================================================================
@@ -348,8 +367,7 @@ final class ProductControllerTest extends WebTestCase
         self::assertSame(['products' => [$other]], $this->responseData());
 
         $this->client->jsonRequest('POST', '/web/products/', ['sku' => 'new-product']);
-        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
-        self::assertNotSame($product['id'], $this->responseData()['product']['id']);
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     // ========================================================================

@@ -64,7 +64,7 @@ final class DoctrineCategoryHierarchyTransactionTest extends KernelTestCase
 
         try {
             $transaction->run(static function () use ($categories, $root, $child): void {
-                $categories->save($child->moveTo($root->getId()));
+                $categories->save($child->moveTo($root->id));
 
                 throw new \RuntimeException('Abort the operation.');
             });
@@ -75,9 +75,37 @@ final class DoctrineCategoryHierarchyTransactionTest extends KernelTestCase
 
         self::assertTrue($manager->isOpen());
         $manager->clear();
-        self::assertNull($categories->findById($child->getId())->getParentId());
-        self::getContainer()->get(MoveCategoryHandler::class)(new MoveCategoryCommand($child->getId(), $root->getId()));
+        self::assertNull($categories->findById($child->id)->parentId);
+        self::getContainer()->get(MoveCategoryHandler::class)(new MoveCategoryCommand($child->id, $root->id));
         $manager->clear();
-        self::assertEquals($root->getId(), $categories->findById($child->getId())->getParentId());
+        self::assertEquals($root->id, $categories->findById($child->id)->parentId);
+    }
+
+    // ========================================================================
+    // Soft deletion: a failed transaction restores the entire subtree
+    // ========================================================================
+
+    public function testFailureRollsBackSubtreeDeletion(): void
+    {
+        self::bootKernel();
+        $transaction = self::getContainer()->get(DoctrineCategoryHierarchyTransaction::class);
+        $categories = self::getContainer()->get(CategoryRepository::class);
+        $root = $categories->save(new Category(new UuidGenerator()->generate()));
+        $child = $categories->save(new Category(new UuidGenerator()->generate(), $root->id));
+
+        try {
+            $transaction->run(static function () use ($categories, $root, $child): void {
+                $categories->delete($root);
+                self::assertNull($categories->findById($child->id));
+
+                throw new \RuntimeException('Abort deletion.');
+            });
+            self::fail('The operation must propagate its failure.');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('Abort deletion.', $exception->getMessage());
+        }
+
+        self::assertEquals($root, $categories->findById($root->id));
+        self::assertEquals($child, $categories->findById($child->id));
     }
 }

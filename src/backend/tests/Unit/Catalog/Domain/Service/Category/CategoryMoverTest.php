@@ -32,25 +32,25 @@ final class CategoryMoverTest extends TestCase
         $parent = $this->category('2');
         $ancestry = $this->createMock(CategoryAncestryInterface::class);
         $ancestry->expects(self::once())->method('inspect')
-            ->with($category->getId(), $parent->getId())
+            ->with($category->id, $parent->id)
             ->willReturn(new CategoryAncestryResult(false, false));
 
         $moved = new CategoryMover($ancestry)->move($category, $parent);
 
-        self::assertEquals($parent->getId(), $moved->getParentId());
-        self::assertNull($category->getParentId());
+        self::assertEquals($parent->id, $moved->parentId);
+        self::assertNull($category->parentId);
     }
 
     public function testMoveToRootDoesNotReadAncestry(): void
     {
-        $category = $this->category('1')->moveTo($this->category('2')->getId());
+        $category = $this->category('1')->moveTo($this->category('2')->id);
         $ancestry = $this->createMock(CategoryAncestryInterface::class);
         $ancestry->expects(self::never())->method('inspect');
 
         $moved = new CategoryMover($ancestry)->move($category, null);
 
-        self::assertNull($moved->getParentId());
-        self::assertNotNull($category->getParentId());
+        self::assertNull($moved->parentId);
+        self::assertNotNull($category->parentId);
     }
 
     public function testSelfParentIsRejectedWithoutReadingAncestry(): void
@@ -75,7 +75,7 @@ final class CategoryMoverTest extends TestCase
             self::fail('Invalid ancestry must be rejected.');
         } catch (InvalidCategoryHierarchyException $exception) {
             self::assertSame('Moving this category would create a cycle.', $exception->getMessage());
-            self::assertNull($category->getParentId());
+            self::assertNull($category->parentId);
         }
     }
 

@@ -4,17 +4,18 @@ declare(strict_types=1);
 
 namespace App\Catalog\Infrastructure\Presentation\Http\Web\Controller;
 
-use App\Catalog\Application\Presentation\Http\Web\Resource\Category as CategoryResource;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryCommand;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryHandler;
 use App\Catalog\Domain\Entity\Category;
-use App\Catalog\Domain\Exception\Category\CategoryHasChildrenException;
 use App\Catalog\Domain\Exception\Category\CategoryNotFoundException;
 use App\Catalog\Domain\Exception\Category\InvalidCategoryHierarchyException;
 use App\Catalog\Domain\Persistence\Repository\CategoryRepositoryInterface;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\MoveCategoryRequest;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\Category as CategoryResource;
+use App\General\Adapter\Symfony\Http\OpenApi\ErrorResponse;
 use App\General\Identity\Id;
 use App\General\Identity\IdGeneratorInterface;
+use Nelmio\ApiDocBundle\Attribute\Model;
 use OpenApi\Attributes as OA;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -39,8 +40,8 @@ final class CategoryController extends AbstractController
 
     #[Route(path: '/', name: 'list', methods: ['GET', 'HEAD'])]
     #[OA\Get(summary: 'List categories and their parent IDs', responses: [
-        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(ref: '#/components/schemas/CategoriesResponse')),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['categories'], properties: [new OA\Property(property: 'categories', type: 'array', items: new OA\Items(ref: new Model(type: CategoryResource::class)))])),
+        new ErrorResponse(response: 500),
     ])]
     #[OA\Head(summary: 'List categories and their parent IDs (headers only)', responses: [
         new OA\Response(response: 200, description: 'Same status as GET; no response body.'),
@@ -52,7 +53,7 @@ final class CategoryController extends AbstractController
             $categories = [];
 
             foreach ($this->categoryRepository->findAll() as $category) {
-                $categories[] = new CategoryResource($category->getId()->toString(), $category->getParentId()?->toString());
+                $categories[] = new CategoryResource($category->id->toString(), $category->parentId?->toString());
             }
 
             return $this->json(['categories' => $categories]);
@@ -63,9 +64,9 @@ final class CategoryController extends AbstractController
 
     #[Route(path: '/{id}', name: 'show', requirements: ['id' => '(?i:'.Requirement::UUID.')'], methods: ['GET', 'HEAD'])]
     #[OA\Get(summary: 'Get a category', responses: [
-        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(ref: '#/components/schemas/CategoryResponse')),
-        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['category'], properties: [new OA\Property(property: 'category', ref: new Model(type: CategoryResource::class))])),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 500),
     ])]
     #[OA\Head(summary: 'Get a category (headers only)', responses: [
         new OA\Response(response: 200, description: 'Same status as GET; no response body.'),
@@ -82,7 +83,7 @@ final class CategoryController extends AbstractController
                 return $this->json(['error' => 'Category not found.'], Response::HTTP_NOT_FOUND);
             }
 
-            return $this->json(['category' => new CategoryResource($category->getId()->toString(), $category->getParentId()?->toString())]);
+            return $this->json(['category' => new CategoryResource($category->id->toString(), $category->parentId?->toString())]);
         } catch (\Throwable $exception) {
             return $this->serverError($exception);
         }
@@ -90,17 +91,17 @@ final class CategoryController extends AbstractController
 
     #[Route(path: '/', name: 'create', methods: ['POST'])]
     #[OA\Post(summary: 'Create a root category without a request body', responses: [
-        new OA\Response(response: 201, description: 'Successful response.', content: new OA\JsonContent(ref: '#/components/schemas/CategoryResponse')),
-        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
-        new OA\Response(ref: '#/components/responses/HierarchyConflict', response: 409),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new OA\Response(response: 201, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['category'], properties: [new OA\Property(property: 'category', ref: new Model(type: CategoryResource::class))])),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 409, description: 'The requested parent is the category itself or a descendant, or the existing hierarchy contains a cycle.'),
+        new ErrorResponse(response: 500),
     ])]
     public function create(): JsonResponse
     {
         try {
             $category = $this->categoryRepository->save(new Category($this->idGenerator->generate()));
 
-            return $this->json(['category' => new CategoryResource($category->getId()->toString(), $category->getParentId()?->toString())], Response::HTTP_CREATED);
+            return $this->json(['category' => new CategoryResource($category->id->toString(), $category->parentId?->toString())], Response::HTTP_CREATED);
         } catch (CategoryNotFoundException $exception) {
             return $this->json(['error' => $exception->getMessage()], Response::HTTP_NOT_FOUND);
         } catch (InvalidCategoryHierarchyException $exception) {
@@ -112,13 +113,13 @@ final class CategoryController extends AbstractController
 
     #[Route(path: '/{id}', name: 'move', requirements: ['id' => '(?i:'.Requirement::UUID.')'], methods: ['PATCH'])]
     #[OA\Patch(summary: 'Move a category; use parent_id null to move it to the root', responses: [
-        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(ref: '#/components/schemas/CategoryResponse')),
-        new OA\Response(ref: '#/components/responses/BadRequest', response: 400),
-        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
-        new OA\Response(ref: '#/components/responses/HierarchyConflict', response: 409),
-        new OA\Response(ref: '#/components/responses/UnsupportedMediaType', response: 415),
-        new OA\Response(ref: '#/components/responses/ValidationFailed', response: 422),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['category'], properties: [new OA\Property(property: 'category', ref: new Model(type: CategoryResource::class))])),
+        new ErrorResponse(response: 400),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 409, description: 'The requested parent is the category itself or a descendant, or the existing hierarchy contains a cycle.'),
+        new ErrorResponse(response: 415),
+        new ErrorResponse(response: 422),
+        new ErrorResponse(response: 500),
     ])]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
     public function move(
@@ -135,7 +136,7 @@ final class CategoryController extends AbstractController
                 null === $request->parentId ? null : Id::fromString($request->parentId),
             ));
 
-            return $this->json(['category' => new CategoryResource($category->getId()->toString(), $category->getParentId()?->toString())]);
+            return $this->json(['category' => new CategoryResource($category->id->toString(), $category->parentId?->toString())]);
         } catch (CategoryNotFoundException $exception) {
             return $this->json(['error' => $exception->getMessage()], Response::HTTP_NOT_FOUND);
         } catch (InvalidCategoryHierarchyException $exception) {
@@ -146,11 +147,10 @@ final class CategoryController extends AbstractController
     }
 
     #[Route(path: '/{id}', name: 'delete', requirements: ['id' => '(?i:'.Requirement::UUID.')'], methods: ['DELETE'])]
-    #[OA\Delete(summary: 'Delete a category without children and remove its product links', responses: [
+    #[OA\Delete(summary: 'Soft-delete a category and its descendants, preserving product links', responses: [
         new OA\Response(response: 204, description: 'Completed; no response body.'),
-        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
-        new OA\Response(ref: '#/components/responses/CategoryHasChildren', response: 409),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 500),
     ])]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
     public function delete(string $id): Response
@@ -165,8 +165,6 @@ final class CategoryController extends AbstractController
             $this->categoryRepository->delete($category);
 
             return new Response(status: Response::HTTP_NO_CONTENT);
-        } catch (CategoryHasChildrenException $exception) {
-            return $this->json(['error' => $exception->getMessage()], Response::HTTP_CONFLICT);
         } catch (\Throwable $exception) {
             return $this->serverError($exception);
         }

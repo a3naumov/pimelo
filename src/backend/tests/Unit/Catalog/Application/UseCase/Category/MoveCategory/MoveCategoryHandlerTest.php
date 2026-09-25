@@ -63,35 +63,35 @@ final class MoveCategoryHandlerTest extends TestCase
         $this->repository->expects(self::exactly(2))->method('findById')->willReturnCallback(function (Id $id) use ($category, $parent): Category {
             self::assertTrue($this->inTransaction);
 
-            return $id->equals($category->getId()) ? $category : $parent;
+            return $id->equals($category->id) ? $category : $parent;
         });
         $this->ancestry->expects(self::once())->method('inspect')->willReturnCallback(function () use ($category): CategoryAncestryResult {
             self::assertTrue($this->inTransaction);
-            self::assertNull($category->getParentId());
+            self::assertNull($category->parentId);
 
             return new CategoryAncestryResult(false, false);
         });
         $this->repository->expects(self::once())->method('save')->willReturnCallback(function (Category $moved) use ($parent): Category {
             self::assertTrue($this->inTransaction);
-            self::assertEquals($parent->getId(), $moved->getParentId());
+            self::assertEquals($parent->id, $moved->parentId);
 
             return $moved;
         });
 
-        $moved = ($this->handler)(new MoveCategoryCommand($category->getId(), $parent->getId()));
+        $moved = ($this->handler)(new MoveCategoryCommand($category->id, $parent->id));
 
-        self::assertEquals($parent->getId(), $moved->getParentId());
+        self::assertEquals($parent->id, $moved->parentId);
         self::assertFalse($this->inTransaction);
     }
 
     public function testMoveToRootDoesNotLoadParentOrAncestry(): void
     {
-        $category = $this->category('1')->moveTo($this->category('2')->getId());
-        $this->repository->expects(self::once())->method('findById')->with($category->getId())->willReturn($category);
+        $category = $this->category('1')->moveTo($this->category('2')->id);
+        $this->repository->expects(self::once())->method('findById')->with($category->id)->willReturn($category);
         $this->ancestry->expects(self::never())->method('inspect');
         $this->repository->expects(self::once())->method('save')->willReturnArgument(0);
 
-        self::assertNull(($this->handler)(new MoveCategoryCommand($category->getId(), null))->getParentId());
+        self::assertNull(($this->handler)(new MoveCategoryCommand($category->id, null))->parentId);
     }
 
     // ========================================================================
@@ -109,7 +109,7 @@ final class MoveCategoryHandlerTest extends TestCase
         $this->expectException(CategoryNotFoundException::class);
         $this->expectExceptionMessage($message);
 
-        ($this->handler)(new MoveCategoryCommand($category->getId(), $this->category('2')->getId()));
+        ($this->handler)(new MoveCategoryCommand($category->id, $this->category('2')->id));
     }
 
     public function testCycleIsNotSaved(): void
@@ -121,7 +121,7 @@ final class MoveCategoryHandlerTest extends TestCase
         $this->repository->expects(self::never())->method('save');
         $this->expectException(InvalidCategoryHierarchyException::class);
 
-        ($this->handler)(new MoveCategoryCommand($category->getId(), $parent->getId()));
+        ($this->handler)(new MoveCategoryCommand($category->id, $parent->id));
     }
 
     private function category(string $suffix): Category

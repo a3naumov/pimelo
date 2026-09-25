@@ -67,10 +67,10 @@ final class ProductRepositoryTest extends KernelTestCase
         $saved = $this->repository->save($product);
         $this->entityManager->clear();
 
-        self::assertSame($id, $product->getId());
-        self::assertTrue($id->equals($saved->getId()));
-        self::assertSame('product-1', $saved->getSku());
-        self::assertEquals($saved, $this->repository->findById($saved->getId()));
+        self::assertSame($id, $product->id);
+        self::assertTrue($id->equals($saved->id));
+        self::assertSame('product-1', $saved->sku);
+        self::assertEquals($saved, $this->repository->findById($saved->id));
     }
 
     public function testSavePreservesProvidedId(): void
@@ -78,13 +78,13 @@ final class ProductRepositoryTest extends KernelTestCase
         $id = Id::fromString('01994731-0123-7000-8000-000000000000');
         $product = new Product(sku: 'product-1', id: $id);
 
-        self::assertSame($id, $product->getId());
+        self::assertSame($id, $product->id);
 
         $saved = $this->repository->save($product);
         $this->entityManager->clear();
 
         self::assertEquals($product, $saved);
-        self::assertEquals($saved, $this->repository->findById($saved->getId()));
+        self::assertEquals($saved, $this->repository->findById($saved->id));
     }
 
     // ========================================================================
@@ -96,12 +96,12 @@ final class ProductRepositoryTest extends KernelTestCase
         $original = $this->repository->save(new Product(sku: 'original-sku', id: $this->idGenerator->generate()));
         $this->entityManager->clear();
 
-        $updated = $this->repository->save(new Product(sku: 'updated-sku', id: $original->getId()));
+        $updated = $this->repository->save(new Product(sku: 'updated-sku', id: $original->id));
         $this->entityManager->clear();
 
-        self::assertTrue($original->getId()->equals($updated->getId()));
-        self::assertSame('updated-sku', $updated->getSku());
-        self::assertEquals($updated, $this->repository->findById($original->getId()));
+        self::assertTrue($original->id->equals($updated->id));
+        self::assertSame('updated-sku', $updated->sku);
+        self::assertEquals($updated, $this->repository->findById($original->id));
         self::assertCount(1, $this->repository->findAll());
     }
 
@@ -122,7 +122,7 @@ final class ProductRepositoryTest extends KernelTestCase
 
         $products = $this->repository->findAll();
 
-        self::assertFalse($first->getId()->equals($second->getId()));
+        self::assertFalse($first->id->equals($second->id));
         self::assertCount(2, $products);
         self::assertContainsOnlyInstancesOf(Product::class, $products);
         self::assertEqualsCanonicalizing([$first, $second], $products);
@@ -132,9 +132,9 @@ final class ProductRepositoryTest extends KernelTestCase
     {
         $product = $this->repository->save(new Product(sku: 'product-1', id: $this->idGenerator->generate()));
         $this->entityManager->clear();
-        $id = Id::fromString($product->getId()->toString());
+        $id = Id::fromString($product->id->toString());
 
-        self::assertNotSame($product->getId(), $id);
+        self::assertNotSame($product->id, $id);
         self::assertEquals($product, $this->repository->findById($id));
     }
 
@@ -144,19 +144,102 @@ final class ProductRepositoryTest extends KernelTestCase
     }
 
     // ========================================================================
-    // Delete: removes persisted products and ignores missing products
+    // Soft deletion: hides products while preserving rows and timestamps
     // ========================================================================
 
-    public function testDeleteRemovesPersistedProduct(): void
+    public function testDeletePreservesTheRowAndHidesTheCachedProduct(): void
     {
         $product = $this->repository->save(new Product(sku: 'product-1', id: $this->idGenerator->generate()));
+        $this->repository->delete($product);
+
+        self::assertNull($this->repository->findById($product->id));
+        self::assertSame([], $this->repository->findAll());
         $this->entityManager->clear();
+
+        self::assertNull($this->repository->findById($product->id));
+        self::assertSame([], $this->repository->findAll());
+        self::assertNull($this->entityManager->find(DoctrineProduct::class, $product->id->toString()));
+        $filters = $this->entityManager->getFilters();
+        $filters->suspend('softdeleteable');
+        try {
+            $stored = $this->entityManager->find(DoctrineProduct::class, $product->id->toString());
+            self::assertSame('product-1', $stored->sku);
+            self::assertInstanceOf(\DateTimeImmutable::class, $stored->deletedAt);
+        } finally {
+            $filters->restore('softdeleteable');
+        }
+    }
+
+    public function testRepeatedDeletionPreservesTheOriginalTimestamp(): void
+    {
+        $product = $this->repository->save(new Product($this->idGenerator->generate(), 'deleted'));
+        $connection = $this->entityManager->getConnection();
+        $this->repository->delete($product);
+        $connection->update('product', ['deleted_at' => '2020-01-01 00:00:00+00'], ['id' => $product->id->toString()]);
+        $timestamp = $connection->fetchOne('SELECT deleted_at FROM product WHERE id = ?', [$product->id->toString()]);
 
         $this->repository->delete($product);
+
+        self::assertSame($timestamp, $connection->fetchOne('SELECT deleted_at FROM product WHERE id = ?', [$product->id->toString()]));
+    }
+
+    public function testSaveRejectsADeletedCachedProduct(): void
+    {
+        $product = $this->repository->save(new Product($this->idGenerator->generate(), 'deleted'));
+        $this->repository->delete($product);
+
+        $this->expectException(\LogicException::class);
+
+        try {
+            $this->repository->save(new Product($product->id, 'changed'));
+        } finally {
+            self::assertTrue($this->entityManager->getFilters()->isEnabled('softdeleteable'));
+            self::assertNull($this->repository->findById($product->id));
+        }
+    }
+
+    // ========================================================================
+    // Timestampable: creation is fixed; actual changes advance the update time
+    // ========================================================================
+
+    public function testTimestampableTracksCreationAndSkuChanges(): void
+    {
+        $product = $this->repository->save(new Product($this->idGenerator->generate(), 'original'));
+        $connection = $this->entityManager->getConnection();
+        $id = $product->id->toString();
+        $this->entityManager->clear();
+        $stored = $this->entityManager->find(DoctrineProduct::class, $id);
+        self::assertInstanceOf(\DateTimeImmutable::class, $stored->createdAt);
+        self::assertInstanceOf(\DateTimeImmutable::class, $stored->updatedAt);
+        $createdAt = $stored->createdAt;
+
+        $connection->update('product', ['updated_at' => '2000-01-01 00:00:00+00'], ['id' => $id]);
+        $this->repository->save(new Product($product->id, 'changed'));
         $this->entityManager->clear();
 
-        self::assertNull($this->repository->findById($product->getId()));
-        self::assertSame([], $this->repository->findAll());
+        $stored = $this->entityManager->find(DoctrineProduct::class, $id);
+        self::assertEquals($createdAt, $stored->createdAt);
+        self::assertGreaterThan(new \DateTimeImmutable('2000-01-01T00:00:00+00:00'), $stored->updatedAt);
+        $updatedAt = new \DateTimeImmutable('2001-01-01T00:00:00+00:00');
+        $connection->update('product', ['updated_at' => $updatedAt->format('Y-m-d H:i:sP')], ['id' => $id]);
+
+        $this->repository->findById($product->id);
+        $this->repository->save(new Product($product->id, 'changed'));
+        $this->entityManager->clear();
+        self::assertEquals($updatedAt, $this->entityManager->find(DoctrineProduct::class, $id)->updatedAt);
+
+        $this->repository->delete($product);
+        self::assertEquals($updatedAt, new \DateTimeImmutable($connection->fetchOne('SELECT updated_at FROM product WHERE id = ?', [$id])));
+    }
+
+    public function testDeletedSkuCannotBeReused(): void
+    {
+        $product = $this->repository->save(new Product($this->idGenerator->generate(), 'reserved'));
+        $this->repository->delete($product);
+
+        $this->expectException(UniqueConstraintViolationException::class);
+
+        $this->repository->save(new Product($this->idGenerator->generate(), 'reserved'));
     }
 
     public function testDeleteIgnoresUnsavedAndMissingProducts(): void

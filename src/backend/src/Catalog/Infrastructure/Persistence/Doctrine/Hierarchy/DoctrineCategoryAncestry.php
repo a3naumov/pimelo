@@ -24,11 +24,12 @@ final readonly class DoctrineCategoryAncestry implements CategoryAncestryInterfa
     {
         $result = $this->connection->fetchAssociative(<<<'SQL'
             WITH RECURSIVE ancestors AS (
-                SELECT id, parent_id FROM category WHERE id = :node_id
+                SELECT id, parent_id FROM category WHERE id = :node_id AND deleted_at IS NULL
                 UNION ALL
                 SELECT category.id, category.parent_id
                 FROM category
                 INNER JOIN ancestors ON category.id = ancestors.parent_id
+                WHERE category.deleted_at IS NULL
             ) CYCLE id SET is_cycle USING path
             SELECT
                 COUNT(*) FILTER (WHERE id = :ancestor_id) AS ancestor_count,

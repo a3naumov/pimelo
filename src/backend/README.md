@@ -32,7 +32,9 @@ dependency installation remain separate setup steps, as in CI.
 Nelmio generates an OpenAPI 3.0.3 specification for products, categories,
 product-category links and the healthcheck. In `dev` and `test`, fetch
 `GET /web/api-docs.json` (by default, `http://localhost:8080/web/api-docs.json` in Docker).
-There is no documentation route in `prod`, and no UI, Twig or Asset dependency.
+The bundle is enabled in all environments, but its HTTP route is registered only
+in `dev` and `test`. There is no documentation route in `prod`, and no UI, Twig
+or Asset dependency.
 The specification uses the `web` area. A separate `api` area and documentation
 route will be added when API endpoints exist; `/api/doc.json` is not registered.
 
@@ -45,10 +47,14 @@ docker compose exec -T backend php bin/console nelmio:apidoc:dump --env=dev --ar
 
 Redirect stdout to a local file when needed; do not commit generated documents.
 Routes and request schemas are inferred from Symfony metadata. Operation
-descriptions live in infrastructure controllers; reusable response schemas live
-in `config/packages/nelmio_api_doc.yaml`. Domain and application models do not
-depend on Nelmio or OpenAPI attributes. Keep these descriptions up to date
-when changing the HTTP contract.
+descriptions live in infrastructure controllers and refer to resources using
+Nelmio `Model`. Resources live in `Catalog/Infrastructure/Presentation/Http/Web/Resource`
+and describe their JSON contracts with OpenAPI attributes; shared error
+documentation lives in General's HTTP `OpenApi` adapter. Domain and application
+models do not depend on Nelmio or OpenAPI attributes. Keep these descriptions up
+to date when changing the HTTP
+contract. `config/packages/nelmio_api_doc.yaml` contains only generation settings,
+API metadata and area filters.
 
 The current development RoadRunner configuration starts a fresh worker for each
 request. If using persistent workers during development, restart those backend

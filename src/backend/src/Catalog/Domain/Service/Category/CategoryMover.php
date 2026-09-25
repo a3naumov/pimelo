@@ -17,10 +17,10 @@ final readonly class CategoryMover
     /** @throws InvalidCategoryHierarchyException */
     public function move(Category $category, ?Category $parent): Category
     {
-        $moved = $category->moveTo($parent?->getId());
+        $moved = $category->moveTo($parent?->id);
 
         if (null !== $parent) {
-            $ancestry = $this->ancestry->inspect($category->getId(), $parent->getId());
+            $ancestry = $this->ancestry->inspect($category->id, $parent->id);
 
             if ($ancestry->isAncestorOrSelf || $ancestry->hasCycle) {
                 throw new InvalidCategoryHierarchyException('Moving this category would create a cycle.');

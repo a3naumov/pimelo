@@ -63,19 +63,19 @@ final class MoveCategoryHandlerTest extends KernelTestCase
         $other = $this->createCategory();
 
         try {
-            ($this->handler)(new MoveCategoryCommand($root->getId(), $leaf->getId()));
+            ($this->handler)(new MoveCategoryCommand($root->id, $leaf->id));
             self::fail('Moving under a descendant must fail.');
         } catch (InvalidCategoryHierarchyException) {
             self::assertTrue($this->manager->isOpen());
-            self::assertNull($this->categories->findById($root->getId())->getParentId());
+            self::assertNull($this->categories->findById($root->id)->parentId);
         }
 
-        ($this->handler)(new MoveCategoryCommand($root->getId(), $other->getId()));
+        ($this->handler)(new MoveCategoryCommand($root->id, $other->id));
         $this->manager->clear();
 
-        self::assertEquals($other->getId(), $this->categories->findById($root->getId())->getParentId());
-        self::assertEquals($root->getId(), $this->categories->findById($child->getId())->getParentId());
-        self::assertEquals($child->getId(), $this->categories->findById($leaf->getId())->getParentId());
+        self::assertEquals($other->id, $this->categories->findById($root->id)->parentId);
+        self::assertEquals($root->id, $this->categories->findById($child->id)->parentId);
+        self::assertEquals($child->id, $this->categories->findById($leaf->id)->parentId);
     }
 
     public function testRejectsACyclicParentChain(): void
@@ -83,11 +83,11 @@ final class MoveCategoryHandlerTest extends KernelTestCase
         $first = $this->createCategory();
         $second = $this->createCategory($first);
         $outside = $this->createCategory();
-        $this->manager->getConnection()->update('category', ['parent_id' => $second->getId()->toString()], ['id' => $first->getId()->toString()]);
+        $this->manager->getConnection()->update('category', ['parent_id' => $second->id->toString()], ['id' => $first->id->toString()]);
 
         $this->expectException(InvalidCategoryHierarchyException::class);
 
-        ($this->handler)(new MoveCategoryCommand($outside->getId(), $first->getId()));
+        ($this->handler)(new MoveCategoryCommand($outside->id, $first->id));
     }
 
     // ========================================================================
@@ -98,26 +98,44 @@ final class MoveCategoryHandlerTest extends KernelTestCase
     {
         $first = $this->createCategory();
         $second = $this->createCategory();
-        $this->categories->findById($second->getId());
-        $this->manager->getConnection()->update('category', ['parent_id' => $first->getId()->toString()], ['id' => $second->getId()->toString()]);
+        $this->categories->findById($second->id);
+        $this->manager->getConnection()->update('category', ['parent_id' => $first->id->toString()], ['id' => $second->id->toString()]);
         $this->expectException(InvalidCategoryHierarchyException::class);
 
-        ($this->handler)(new MoveCategoryCommand($first->getId(), $second->getId()));
+        ($this->handler)(new MoveCategoryCommand($first->id, $second->id));
     }
 
     public function testDeletedCachedCategoryIsNotRecreated(): void
     {
         $category = $this->createCategory();
-        $this->categories->findById($category->getId());
-        $this->manager->getConnection()->delete('category', ['id' => $category->getId()->toString()]);
+        $this->categories->findById($category->id);
+        $this->manager->getConnection()->delete('category', ['id' => $category->id->toString()]);
         $this->expectException(CategoryNotFoundException::class);
         $this->expectExceptionMessage('Category not found.');
 
-        ($this->handler)(new MoveCategoryCommand($category->getId(), null));
+        ($this->handler)(new MoveCategoryCommand($category->id, null));
+    }
+
+    // ========================================================================
+    // Soft deletion: a subtree moved away before deletion remains active
+    // ========================================================================
+
+    public function testSubtreeMovedAwayBeforeDeletionRemainsActive(): void
+    {
+        $root = $this->createCategory();
+        $child = $this->createCategory($root);
+        $leaf = $this->createCategory($child);
+
+        ($this->handler)(new MoveCategoryCommand($child->id, null));
+        $this->categories->delete($root);
+
+        self::assertNull($this->categories->findById($root->id));
+        self::assertNull($this->categories->findById($child->id)->parentId);
+        self::assertEquals($leaf, $this->categories->findById($leaf->id));
     }
 
     private function createCategory(?Category $parent = null): Category
     {
-        return $this->categories->save(new Category(new UuidGenerator()->generate(), $parent?->getId()));
+        return $this->categories->save(new Category(new UuidGenerator()->generate(), $parent?->id));
     }
 }

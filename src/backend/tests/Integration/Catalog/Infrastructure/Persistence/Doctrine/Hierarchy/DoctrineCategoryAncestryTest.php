@@ -54,13 +54,13 @@ final class DoctrineCategoryAncestryTest extends KernelTestCase
         $other = $this->createCategory();
 
         foreach ([$leaf, $child, $root] as $ancestor) {
-            self::assertEquals(new CategoryAncestryResult(true, false), $this->ancestry->inspect($ancestor->getId(), $leaf->getId()));
+            self::assertEquals(new CategoryAncestryResult(true, false), $this->ancestry->inspect($ancestor->id, $leaf->id));
         }
-        self::assertEquals(new CategoryAncestryResult(false, false), $this->ancestry->inspect($leaf->getId(), $root->getId()));
-        self::assertEquals(new CategoryAncestryResult(false, false), $this->ancestry->inspect($other->getId(), $leaf->getId()));
+        self::assertEquals(new CategoryAncestryResult(false, false), $this->ancestry->inspect($leaf->id, $root->id));
+        self::assertEquals(new CategoryAncestryResult(false, false), $this->ancestry->inspect($other->id, $leaf->id));
         $missing = new UuidGenerator()->generate();
-        self::assertEquals(new CategoryAncestryResult(false, false), $this->ancestry->inspect($missing, $leaf->getId()));
-        self::assertEquals(new CategoryAncestryResult(false, false), $this->ancestry->inspect($root->getId(), $missing));
+        self::assertEquals(new CategoryAncestryResult(false, false), $this->ancestry->inspect($missing, $leaf->id));
+        self::assertEquals(new CategoryAncestryResult(false, false), $this->ancestry->inspect($root->id, $missing));
     }
 
     // ========================================================================
@@ -72,32 +72,46 @@ final class DoctrineCategoryAncestryTest extends KernelTestCase
         $first = $this->createCategory();
         $second = $this->createCategory($first);
         $outside = $this->createCategory();
-        $this->connection->update('category', ['parent_id' => $second->getId()->toString()], ['id' => $first->getId()->toString()]);
+        $this->connection->update('category', ['parent_id' => $second->id->toString()], ['id' => $first->id->toString()]);
 
-        self::assertEquals(new CategoryAncestryResult(true, true), $this->ancestry->inspect($first->getId(), $second->getId()));
-        self::assertEquals(new CategoryAncestryResult(false, true), $this->ancestry->inspect($outside->getId(), $second->getId()));
+        self::assertEquals(new CategoryAncestryResult(true, true), $this->ancestry->inspect($first->id, $second->id));
+        self::assertEquals(new CategoryAncestryResult(false, true), $this->ancestry->inspect($outside->id, $second->id));
     }
 
     public function testReportsASelfReferencingDatabaseRow(): void
     {
         $category = $this->createCategory();
-        $this->connection->update('category', ['parent_id' => $category->getId()->toString()], ['id' => $category->getId()->toString()]);
+        $this->connection->update('category', ['parent_id' => $category->id->toString()], ['id' => $category->id->toString()]);
 
-        self::assertEquals(new CategoryAncestryResult(true, true), $this->ancestry->inspect($category->getId(), $category->getId()));
+        self::assertEquals(new CategoryAncestryResult(true, true), $this->ancestry->inspect($category->id, $category->id));
     }
 
     public function testReadsDatabaseInsteadOfCachedEntities(): void
     {
         $root = $this->createCategory();
         $child = $this->createCategory();
-        $this->categories->findById($child->getId());
-        $this->connection->update('category', ['parent_id' => $root->getId()->toString()], ['id' => $child->getId()->toString()]);
+        $this->categories->findById($child->id);
+        $this->connection->update('category', ['parent_id' => $root->id->toString()], ['id' => $child->id->toString()]);
 
-        self::assertEquals(new CategoryAncestryResult(true, false), $this->ancestry->inspect($root->getId(), $child->getId()));
+        self::assertEquals(new CategoryAncestryResult(true, false), $this->ancestry->inspect($root->id, $child->id));
+    }
+
+    // ========================================================================
+    // Soft deletion: archived nodes are excluded from ancestry facts
+    // ========================================================================
+
+    public function testDeletedSubtreeIsExcludedFromAncestry(): void
+    {
+        $root = $this->createCategory();
+        $child = $this->createCategory($root);
+        $this->categories->delete($root);
+
+        self::assertEquals(new CategoryAncestryResult(false, false), $this->ancestry->inspect($root->id, $child->id));
+        self::assertEquals(new CategoryAncestryResult(false, false), $this->ancestry->inspect($root->id, $root->id));
     }
 
     private function createCategory(?Category $parent = null): Category
     {
-        return $this->categories->save(new Category(new UuidGenerator()->generate(), $parent?->getId()));
+        return $this->categories->save(new Category(new UuidGenerator()->generate(), $parent?->id));
     }
 }

@@ -14,8 +14,8 @@ final readonly class ProductMapper
     public function fromDoctrine(DoctrineProduct $doctrineProduct): Product
     {
         return new Product(
-            id: Id::fromString($doctrineProduct->getId()->toRfc4122()),
-            sku: $doctrineProduct->getSku(),
+            id: Id::fromString($doctrineProduct->id->toRfc4122()),
+            sku: $doctrineProduct->sku,
         );
     }
 
@@ -24,12 +24,12 @@ final readonly class ProductMapper
     {
         if (null === $doctrineProduct) {
             return new DoctrineProduct(
-                id: Uuid::fromString($product->getId()->toString()),
-                sku: $product->getSku(),
+                id: Uuid::fromString($product->id->toString()),
+                sku: $product->sku,
             );
         }
 
-        $doctrineProduct->setSku($product->getSku());
+        $doctrineProduct->sku = $product->sku;
 
         return $doctrineProduct;
     }

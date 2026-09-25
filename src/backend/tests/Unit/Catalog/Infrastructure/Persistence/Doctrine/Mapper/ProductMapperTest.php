@@ -30,8 +30,8 @@ final class ProductMapperTest extends TestCase
 
         $product = new ProductMapper()->fromDoctrine($doctrineProduct);
 
-        self::assertSame($id->toRfc4122(), $product->getId()->toString());
-        self::assertSame('product-1', $product->getSku());
+        self::assertSame($id->toRfc4122(), $product->id->toString());
+        self::assertSame('product-1', $product->sku);
     }
 
     // ========================================================================
@@ -45,8 +45,9 @@ final class ProductMapperTest extends TestCase
 
         $doctrineProduct = new ProductMapper()->toDoctrine($product);
 
-        self::assertSame($id->toString(), $doctrineProduct->getId()->toRfc4122());
-        self::assertSame('product-1', $doctrineProduct->getSku());
+        self::assertSame($id->toString(), $doctrineProduct->id->toRfc4122());
+        self::assertSame('product-1', $doctrineProduct->sku);
+        self::assertNull($doctrineProduct->deletedAt);
     }
 
     // ========================================================================
@@ -62,7 +63,23 @@ final class ProductMapperTest extends TestCase
         $updated = new ProductMapper()->toDoctrine($product, $doctrineProduct);
 
         self::assertSame($doctrineProduct, $updated);
-        self::assertSame($id, $updated->getId());
-        self::assertSame('updated-sku', $updated->getSku());
+        self::assertSame($id, $updated->id);
+        self::assertSame('updated-sku', $updated->sku);
+    }
+
+    // ========================================================================
+    // Soft deletion: mapping never restores an archived persistence entity
+    // ========================================================================
+
+    public function testMappingPreservesDeletionTimestamp(): void
+    {
+        $deletedAt = new \DateTimeImmutable('2026-09-24T10:00:00+00:00');
+        $existing = new DoctrineProduct(Uuid::v7(), 'original', $deletedAt);
+        $product = new Product(Id::fromString($existing->id->toRfc4122()), 'updated');
+
+        $mapped = new ProductMapper()->toDoctrine($product, $existing);
+
+        self::assertSame($existing, $mapped);
+        self::assertSame($deletedAt, $mapped->deletedAt);
     }
 }

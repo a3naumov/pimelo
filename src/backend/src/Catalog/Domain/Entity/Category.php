@@ -7,11 +7,17 @@ namespace App\Catalog\Domain\Entity;
 use App\Catalog\Domain\Exception\Category\InvalidCategoryHierarchyException;
 use App\General\Identity\Id;
 
-final readonly class Category
+final class Category
 {
     /** @throws InvalidCategoryHierarchyException */
-    public function __construct(private Id $id, private ?Id $parentId = null)
-    {
+    public function __construct(
+        public private(set) Id $id {
+            get => $this->id;
+        },
+        public private(set) ?Id $parentId = null {
+            get => $this->parentId;
+        },
+    ) {
         if (null !== $parentId && $id->equals($parentId)) {
             throw new InvalidCategoryHierarchyException('A category cannot be its own parent.');
         }
@@ -21,15 +27,5 @@ final readonly class Category
     public function moveTo(?Id $parentId): self
     {
         return new self($this->id, $parentId);
-    }
-
-    public function getId(): Id
-    {
-        return $this->id;
-    }
-
-    public function getParentId(): ?Id
-    {
-        return $this->parentId;
     }
 }

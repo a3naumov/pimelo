@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Catalog\Infrastructure\Presentation\Http\Web\Controller;
 
-use App\Catalog\Application\Presentation\Http\Web\Resource\Category as CategoryResource;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryCommand;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryHandler;
 use App\Catalog\Domain\Entity\Category;
@@ -26,6 +25,7 @@ use App\Catalog\Infrastructure\Persistence\Doctrine\Transaction\DoctrineCategory
 use App\Catalog\Infrastructure\Presentation\Http\Web\Controller\CategoryController;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Controller\ProductCategoryController;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Controller\ProductController;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\Category as CategoryResource;
 use App\General\Adapter\Symfony\Identity\UuidGenerator;
 use App\General\Identity\Id;
 use App\General\Identity\IdGeneratorInterface;
@@ -101,7 +101,7 @@ final class ProductCategoryControllerTest extends WebTestCase
         $this->assertCategories($this->product, [$this->category, $this->otherCategory]);
         $this->assertCategories($this->otherProduct, [$this->category]);
 
-        $this->client->request('HEAD', '/web/products/'.$this->product->getId().'/categories/');
+        $this->client->request('HEAD', '/web/products/'.$this->product->id.'/categories/');
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
         self::assertSame('', $this->client->getResponse()->getContent());
@@ -111,16 +111,16 @@ final class ProductCategoryControllerTest extends WebTestCase
         $this->assertCategories($this->product, [$this->otherCategory]);
         $this->assertCategories($this->otherProduct, [$this->category]);
 
-        $this->client->request('DELETE', '/web/categories/'.$this->category->getId());
+        $this->client->request('DELETE', '/web/categories/'.$this->category->id);
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
         $this->assertCategories($this->otherProduct, []);
         $this->assertCategories($this->product, [$this->otherCategory]);
 
         $this->link('PUT', $this->otherProduct, $this->otherCategory);
-        $this->client->request('DELETE', '/web/products/'.$this->product->getId());
+        $this->client->request('DELETE', '/web/products/'.$this->product->id);
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
         $this->assertCategories($this->otherProduct, [$this->otherCategory]);
-        self::assertNotNull(self::getContainer()->get(CategoryRepositoryInterface::class)->findById($this->otherCategory->getId()));
+        self::assertNotNull(self::getContainer()->get(CategoryRepositoryInterface::class)->findById($this->otherCategory->id));
     }
 
     // ========================================================================
@@ -132,7 +132,7 @@ final class ProductCategoryControllerTest extends WebTestCase
         $this->link('PUT', $this->product, $this->category);
         $this->link('PUT', $this->otherProduct, $this->category);
 
-        $moved = self::getContainer()->get(MoveCategoryHandler::class)(new MoveCategoryCommand($this->category->getId(), $this->otherCategory->getId()));
+        $moved = self::getContainer()->get(MoveCategoryHandler::class)(new MoveCategoryCommand($this->category->id, $this->otherCategory->id));
 
         $this->assertCategories($this->product, [$moved]);
         $this->assertCategories($this->otherProduct, [$moved]);
@@ -146,8 +146,8 @@ final class ProductCategoryControllerTest extends WebTestCase
     public function testMissingResources(string $method, bool $missingProduct): void
     {
         $missingId = '01994731-abcd-7000-8000-000000000000';
-        $productId = $missingProduct ? $missingId : $this->product->getId()->toString();
-        $categoryId = $missingProduct ? $this->category->getId()->toString() : $missingId;
+        $productId = $missingProduct ? $missingId : $this->product->id->toString();
+        $categoryId = $missingProduct ? $this->category->id->toString() : $missingId;
         $path = '/web/products/'.$productId.'/categories/'.('GET' === $method ? '' : $categoryId);
 
         $this->client->request($method, $path);
@@ -158,12 +158,35 @@ final class ProductCategoryControllerTest extends WebTestCase
     }
 
     // ========================================================================
+    // Soft deletion: archived resources behave as missing, while links survive
+    // ========================================================================
+
+    #[DataProvider('missingResources')]
+    public function testDeletedResourcesReturnNotFound(string $method, bool $deletedProduct): void
+    {
+        $this->link('PUT', $this->product, $this->category);
+        $this->assertCategories($this->product, [$this->category]);
+        $path = $deletedProduct
+            ? '/web/products/'.$this->product->id
+            : '/web/categories/'.$this->category->id;
+        $this->client->request('DELETE', $path);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+
+        $path = '/web/products/'.$this->product->id.'/categories/'.('GET' === $method ? '' : $this->category->id);
+        $this->client->request($method, $path);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        self::assertSame(['error' => $deletedProduct ? 'Product not found.' : 'Category not found.'], $this->responseData());
+        self::assertSame(1, (int) self::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne('SELECT COUNT(*) FROM product_category'));
+    }
+
+    // ========================================================================
     // UUIDs: uppercase IDs are accepted; malformed IDs cannot reach actions
     // ========================================================================
 
     public function testUppercaseIdsAreAccepted(): void
     {
-        $this->client->request('PUT', '/web/products/'.strtoupper($this->product->getId()->toString()).'/categories/'.strtoupper($this->category->getId()->toString()));
+        $this->client->request('PUT', '/web/products/'.strtoupper($this->product->id->toString()).'/categories/'.strtoupper($this->category->id->toString()));
 
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
         $this->assertCategories($this->product, [$this->category]);
@@ -172,7 +195,7 @@ final class ProductCategoryControllerTest extends WebTestCase
     #[DataProvider('invalidRequests')]
     public function testInvalidRequests(string $method, string $path, int $status, ?string $allow): void
     {
-        $path = str_replace(['{product}', '{category}'], [$this->product->getId()->toString(), $this->category->getId()->toString()], $path);
+        $path = str_replace(['{product}', '{category}'], [$this->product->id->toString(), $this->category->id->toString()], $path);
 
         $this->client->request($method, $path, server: ['HTTP_ACCEPT' => 'application/json']);
 
@@ -199,7 +222,7 @@ final class ProductCategoryControllerTest extends WebTestCase
         $handler = new TestHandler(Level::Error, false);
         $logger->pushHandler($handler);
         $this->client->catchExceptions(false);
-        $path = '/web/products/'.$this->product->getId().'/categories/'.('GET' === $method ? '' : $this->category->getId());
+        $path = '/web/products/'.$this->product->id.'/categories/'.('GET' === $method ? '' : $this->category->id);
 
         $this->client->request($method, $path);
 
@@ -216,7 +239,7 @@ final class ProductCategoryControllerTest extends WebTestCase
 
     private function link(string $method, Product $product, Category $category): void
     {
-        $this->client->request($method, '/web/products/'.$product->getId().'/categories/'.$category->getId());
+        $this->client->request($method, '/web/products/'.$product->id.'/categories/'.$category->id);
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
         self::assertSame('', $this->client->getResponse()->getContent());
         self::getContainer()->get(EntityManagerInterface::class)->clear();
@@ -226,12 +249,12 @@ final class ProductCategoryControllerTest extends WebTestCase
     private function assertCategories(Product $product, array $categories): void
     {
         self::getContainer()->get(EntityManagerInterface::class)->clear();
-        $this->client->request('GET', '/web/products/'.$product->getId().'/categories/');
+        $this->client->request('GET', '/web/products/'.$product->id.'/categories/');
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
         $data = $this->responseData();
         self::assertSame(['categories'], array_keys($data));
-        self::assertEqualsCanonicalizing(array_map(static fn (Category $category): array => ['id' => $category->getId()->toString(), 'parent_id' => $category->getParentId()?->toString()], $categories), $data['categories']);
+        self::assertEqualsCanonicalizing(array_map(static fn (Category $category): array => ['id' => $category->id->toString(), 'parent_id' => $category->parentId?->toString()], $categories), $data['categories']);
     }
 
     private function responseData(): array

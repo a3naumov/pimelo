@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Catalog\Infrastructure\Presentation\Http\Web\Controller;
 
-use App\Catalog\Application\Presentation\Http\Web\Resource\Category as CategoryResource;
 use App\Catalog\Domain\Persistence\Repository\CategoryRepositoryInterface;
 use App\Catalog\Domain\Persistence\Repository\ProductCategoryRepositoryInterface;
 use App\Catalog\Domain\Persistence\Repository\ProductRepositoryInterface;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\Category as CategoryResource;
+use App\General\Adapter\Symfony\Http\OpenApi\ErrorResponse;
 use App\General\Identity\Id;
+use Nelmio\ApiDocBundle\Attribute\Model;
 use OpenApi\Attributes as OA;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -37,9 +39,9 @@ final class ProductCategoryController extends AbstractController
 
     #[Route(path: '/', name: 'list', methods: ['GET', 'HEAD'])]
     #[OA\Get(summary: 'List categories linked to a product', responses: [
-        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(ref: '#/components/schemas/CategoriesResponse')),
-        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['categories'], properties: [new OA\Property(property: 'categories', type: 'array', items: new OA\Items(ref: new Model(type: CategoryResource::class)))])),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 500),
     ])]
     #[OA\Head(summary: 'List categories linked to a product (headers only)', responses: [
         new OA\Response(response: 200, description: 'Same status as GET; no response body.'),
@@ -59,7 +61,7 @@ final class ProductCategoryController extends AbstractController
             $categories = [];
 
             foreach ($this->productCategoryRepository->findCategories($product) as $category) {
-                $categories[] = new CategoryResource($category->getId()->toString(), $category->getParentId()?->toString());
+                $categories[] = new CategoryResource($category->id->toString(), $category->parentId?->toString());
             }
 
             return $this->json(['categories' => $categories]);
@@ -71,8 +73,8 @@ final class ProductCategoryController extends AbstractController
     #[Route(path: '/{categoryId}', name: 'attach', methods: ['PUT'])]
     #[OA\Put(summary: 'Link a category to a product; repeated requests are idempotent', responses: [
         new OA\Response(response: 204, description: 'Completed; no response body.'),
-        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 500),
     ])]
     #[OA\Parameter(name: 'productId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
     #[OA\Parameter(name: 'categoryId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
@@ -102,8 +104,8 @@ final class ProductCategoryController extends AbstractController
     #[Route(path: '/{categoryId}', name: 'detach', methods: ['DELETE'])]
     #[OA\Delete(summary: 'Unlink a category from a product; repeated requests are idempotent', responses: [
         new OA\Response(response: 204, description: 'Completed; no response body.'),
-        new OA\Response(ref: '#/components/responses/NotFound', response: 404),
-        new OA\Response(ref: '#/components/responses/InternalServerError', response: 500),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 500),
     ])]
     #[OA\Parameter(name: 'productId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
     #[OA\Parameter(name: 'categoryId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]

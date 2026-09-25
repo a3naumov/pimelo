@@ -9,7 +9,6 @@ use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\Category as DoctrineC
 use App\Catalog\Infrastructure\Persistence\Doctrine\Mapper\CategoryMapper;
 use App\General\Identity\Id;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
@@ -33,10 +32,11 @@ final class CategoryMapperTest extends TestCase
         $category = $mapper->fromDoctrine($doctrineCategory);
         $mapped = $mapper->toDoctrine($category);
 
-        self::assertSame($id->toRfc4122(), $category->getId()->toString());
-        self::assertSame($id->toRfc4122(), $mapped->getId()->toRfc4122());
+        self::assertSame($id->toRfc4122(), $category->id->toString());
+        self::assertSame($id->toRfc4122(), $mapped->id->toRfc4122());
         self::assertSame($doctrineCategory, $mapper->toDoctrine($category, $doctrineCategory));
-        self::assertNull($category->getParentId());
+        self::assertNull($category->parentId);
+        self::assertNull($mapped->deletedAt);
     }
 
     // ========================================================================
@@ -48,66 +48,35 @@ final class CategoryMapperTest extends TestCase
         $parent = new DoctrineCategory(Uuid::v7());
         $child = new DoctrineCategory(Uuid::v7());
         $mapper = new CategoryMapper();
-        $category = new Category(Id::fromString($child->getId()->toRfc4122()), Id::fromString($parent->getId()->toRfc4122()));
+        $category = new Category(Id::fromString($child->id->toRfc4122()), Id::fromString($parent->id->toRfc4122()));
 
-        $mapped = $mapper->toDoctrine($category, $child, $parent);
+        $mapped = $mapper->toDoctrine($category, $child);
 
         self::assertSame($child, $mapped);
-        self::assertSame($parent, $mapped->getParent());
+        self::assertEquals($parent->id, $mapped->parentId);
         self::assertEquals($category, $mapper->fromDoctrine($mapped));
-        $root = new Category($category->getId());
+        $mappedParentId = $mapped->parentId;
+        $mapper->toDoctrine($category, $child);
+        self::assertSame($mappedParentId, $child->parentId);
+        $root = new Category($category->id);
         self::assertSame($child, $mapper->toDoctrine($root, $child));
-        self::assertNull($child->getParent());
-        self::assertNull($mapper->fromDoctrine($child)->getParentId());
+        self::assertNull($child->parentId);
+        self::assertNull($mapper->fromDoctrine($child)->parentId);
     }
 
     // ========================================================================
-    // Consistency: rejects missing or mismatched parents before changing state
+    // Soft deletion: mapping never restores an archived persistence entity
     // ========================================================================
 
-    public function testMappingRejectsAnUnresolvedParent(): void
+    public function testMappingPreservesDeletionTimestamp(): void
     {
-        $category = new Category(Id::fromString(Uuid::v7()->toRfc4122()), Id::fromString(Uuid::v7()->toRfc4122()));
+        $deletedAt = new \DateTimeImmutable('2026-09-24T10:00:00+00:00');
+        $existing = new DoctrineCategory(Uuid::v7(), $deletedAt);
+        $category = new Category(Id::fromString($existing->id->toRfc4122()));
 
-        $this->expectException(\InvalidArgumentException::class);
+        $mapped = new CategoryMapper()->toDoctrine($category, $existing);
 
-        new CategoryMapper()->toDoctrine($category);
-    }
-
-    #[DataProvider('inconsistentParents')]
-    public function testInvalidParentLeavesExistingEntityUnchanged(?string $parentId, ?string $resolvedParentId): void
-    {
-        $originalParent = new DoctrineCategory(Uuid::v7());
-        $existing = new DoctrineCategory(Uuid::v7());
-        $existing->setParent($originalParent);
-        $category = new Category(
-            Id::fromString($existing->getId()->toRfc4122()),
-            null === $parentId ? null : Id::fromString($parentId),
-        );
-        $resolvedParent = null === $resolvedParentId ? null : new DoctrineCategory(Uuid::fromString($resolvedParentId));
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The resolved parent must match the category parent identity.');
-
-        try {
-            new CategoryMapper()->toDoctrine($category, $existing, $resolvedParent);
-        } finally {
-            self::assertSame($originalParent, $existing->getParent());
-        }
-    }
-
-    // ========================================================================
-    // Data providers
-    // ========================================================================
-
-    /** @return iterable<string, array{?string, ?string}> */
-    public static function inconsistentParents(): iterable
-    {
-        $expected = '01994731-abcd-7000-8000-000000000001';
-        $other = '01994731-abcd-7000-8000-000000000002';
-
-        yield 'missing resolved parent' => [$expected, null];
-        yield 'different parent identity' => [$expected, $other];
-        yield 'unexpected parent for a root' => [null, $other];
+        self::assertSame($existing, $mapped);
+        self::assertSame($deletedAt, $mapped->deletedAt);
     }
 }

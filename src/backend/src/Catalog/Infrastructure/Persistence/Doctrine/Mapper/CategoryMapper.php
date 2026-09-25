@@ -16,20 +16,20 @@ final readonly class CategoryMapper
     public function fromDoctrine(DoctrineCategory $category): Category
     {
         return new Category(
-            Id::fromString($category->getId()->toRfc4122()),
-            null === $category->getParent() ? null : Id::fromString($category->getParent()->getId()->toRfc4122()),
+            Id::fromString($category->id->toRfc4122()),
+            null === $category->parentId ? null : Id::fromString($category->parentId->toRfc4122()),
         );
     }
 
     /** @throws \InvalidArgumentException */
-    public function toDoctrine(Category $category, ?DoctrineCategory $doctrineCategory = null, ?DoctrineCategory $parent = null): DoctrineCategory
+    public function toDoctrine(Category $category, ?DoctrineCategory $doctrineCategory = null): DoctrineCategory
     {
-        if ($category->getParentId()?->toString() !== $parent?->getId()->toRfc4122()) {
-            throw new \InvalidArgumentException('The resolved parent must match the category parent identity.');
-        }
+        $doctrineCategory ??= new DoctrineCategory(Uuid::fromString($category->id->toString()));
+        $parentId = $category->parentId?->toString();
 
-        $doctrineCategory ??= new DoctrineCategory(Uuid::fromString($category->getId()->toString()));
-        $doctrineCategory->setParent($parent);
+        if ($doctrineCategory->parentId?->toRfc4122() !== $parentId) {
+            $doctrineCategory->parentId = null === $parentId ? null : Uuid::fromString($parentId);
+        }
 
         return $doctrineCategory;
     }

@@ -12,20 +12,23 @@ use App\General\Identity\Id;
 use Doctrine\DBAL\Exception as DbalException;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Exception\ORMException;
+use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
+use Gedmo\SoftDeleteable\Query\TreeWalker\SoftDeleteableWalker;
 use Symfony\Component\Uid\Uuid;
 
-final readonly class ProductRepository implements ProductRepositoryInterface
+final class ProductRepository implements ProductRepositoryInterface
 {
     public function __construct(
-        private ManagerRegistry $registry,
-        private ProductMapper $productMapper,
+        private readonly ManagerRegistry $registry,
+        private readonly ProductMapper $productMapper,
     ) {
     }
 
     /**
      * @return list<Product>
      *
+     * @throws \UnexpectedValueException
      * @throws DbalException
      * @throws \LogicException
      */
@@ -43,9 +46,9 @@ final readonly class ProductRepository implements ProductRepositoryInterface
      */
     public function findById(Id $id): ?Product
     {
-        $doctrineProduct = $this->getEntityManager()->find(DoctrineProduct::class, Uuid::fromString($id->toString()));
+        $doctrineProduct = $this->findFreshProduct($this->getEntityManager(), $id);
 
-        return $doctrineProduct instanceof DoctrineProduct
+        return null !== $doctrineProduct && null === $doctrineProduct->deletedAt
             ? $this->productMapper->fromDoctrine($doctrineProduct)
             : null;
     }
@@ -58,9 +61,15 @@ final readonly class ProductRepository implements ProductRepositoryInterface
     public function save(Product $product): Product
     {
         $entityManager = $this->getEntityManager();
+        $existing = $this->findFreshProduct($entityManager, $product->id, includeDeleted: true);
+
+        if (null !== $existing?->deletedAt) {
+            throw new \LogicException('A deleted product cannot be saved.');
+        }
+
         $doctrineProduct = $this->productMapper->toDoctrine(
             $product,
-            $entityManager->find(DoctrineProduct::class, Uuid::fromString($product->getId()->toString())),
+            $existing,
         );
 
         $entityManager->persist($doctrineProduct);
@@ -71,25 +80,48 @@ final readonly class ProductRepository implements ProductRepositoryInterface
 
     /**
      * @throws DbalException
-     * @throws ORMException
      * @throws \LogicException
      */
     public function delete(Product $product): void
     {
-        $entityManager = $this->getEntityManager();
-        $doctrineProduct = $entityManager->find(DoctrineProduct::class, Uuid::fromString($product->getId()->toString()));
-
-        if (!$doctrineProduct instanceof DoctrineProduct) {
-            return;
-        }
-
-        $entityManager->remove($doctrineProduct);
-        $entityManager->flush();
+        // Doctrine filters apply to reads, not bulk DQL deletes.
+        $this->getEntityManager()->createQuery('DELETE FROM '.DoctrineProduct::class.' product WHERE product.id = :id AND product.deletedAt IS NULL')
+            ->setParameter('id', $product->id->toString())
+            ->setHint(Query::HINT_CUSTOM_OUTPUT_WALKER, SoftDeleteableWalker::class)
+            ->execute();
     }
 
     /**
-     * @throws \LogicException
+     * @throws DbalException
+     * @throws ORMException
+     * @throws \InvalidArgumentException
      */
+    private function findFreshProduct(EntityManagerInterface $entityManager, Id $id, bool $includeDeleted = false): ?DoctrineProduct
+    {
+        $filters = $entityManager->getFilters();
+        $suspended = $includeDeleted && $filters->isEnabled('softdeleteable');
+
+        if ($suspended) {
+            $filters->suspend('softdeleteable');
+        }
+
+        try {
+            // Saving must distinguish an archived row from a new identity.
+            $product = $entityManager->getRepository(DoctrineProduct::class)->findOneBy(['id' => Uuid::fromString($id->toString())]);
+
+            if (null !== $product) {
+                $entityManager->refresh($product);
+            }
+
+            return $product;
+        } finally {
+            if ($suspended) {
+                $filters->restore('softdeleteable');
+            }
+        }
+    }
+
+    /** @throws \LogicException */
     private function getEntityManager(): EntityManagerInterface
     {
         $entityManager = $this->registry->getManagerForClass(DoctrineProduct::class);

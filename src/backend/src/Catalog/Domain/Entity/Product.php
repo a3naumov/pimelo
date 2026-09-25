@@ -6,21 +6,15 @@ namespace App\Catalog\Domain\Entity;
 
 use App\General\Identity\Id;
 
-final readonly class Product
+final class Product
 {
     public function __construct(
-        private Id $id,
-        private string $sku,
+        public private(set) Id $id {
+            get => $this->id;
+        },
+        public private(set) string $sku {
+            get => $this->sku;
+        },
     ) {
-    }
-
-    public function getId(): Id
-    {
-        return $this->id;
-    }
-
-    public function getSku(): string
-    {
-        return $this->sku;
     }
 }

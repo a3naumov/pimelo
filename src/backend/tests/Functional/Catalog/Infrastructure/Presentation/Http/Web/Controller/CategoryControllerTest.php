@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Catalog\Infrastructure\Presentation\Http\Web\Controller;
 
-use App\Catalog\Application\Presentation\Http\Web\Resource\Category as CategoryResource;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryCommand;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryHandler;
 use App\Catalog\Domain\Entity\Category;
-use App\Catalog\Domain\Exception\Category\CategoryHasChildrenException;
 use App\Catalog\Domain\Exception\Category\CategoryNotFoundException;
 use App\Catalog\Domain\Exception\Category\InvalidCategoryHierarchyException;
 use App\Catalog\Domain\Hierarchy\CategoryAncestryResult;
@@ -21,6 +19,7 @@ use App\Catalog\Infrastructure\Persistence\Doctrine\Repository\CategoryRepositor
 use App\Catalog\Infrastructure\Persistence\Doctrine\Transaction\DoctrineCategoryHierarchyTransaction;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Controller\CategoryController;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\MoveCategoryRequest;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\Category as CategoryResource;
 use App\General\Adapter\Symfony\Identity\UuidGenerator;
 use App\General\Identity\Id;
 use Doctrine\ORM\EntityManagerInterface;
@@ -39,7 +38,6 @@ use Symfony\Component\Uid\UuidV7;
 
 #[CoversClass(CategoryController::class)]
 #[UsesClass(MoveCategoryRequest::class)]
-#[UsesClass(CategoryHasChildrenException::class)]
 #[UsesClass(CategoryNotFoundException::class)]
 #[UsesClass(InvalidCategoryHierarchyException::class)]
 #[UsesClass(DoctrineCategory::class)]
@@ -89,7 +87,7 @@ final class CategoryControllerTest extends WebTestCase
         self::getContainer()->get(EntityManagerInterface::class)->clear();
         $saved = self::getContainer()->get(CategoryRepositoryInterface::class)->findById(Id::fromString($id));
         self::assertNotNull($saved);
-        self::assertSame($id, $saved->getId()->toString());
+        self::assertSame($id, $saved->id->toString());
 
         $this->client->request('GET', '/web/categories/'.strtoupper($id));
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
@@ -183,24 +181,37 @@ final class CategoryControllerTest extends WebTestCase
     }
 
     // ========================================================================
-    // Deletion: parents cannot be deleted until direct children have moved
+    // Soft deletion: removes the entire subtree from the API, not the database
     // ========================================================================
 
-    public function testParentDeletionIsRejectedUntilChildrenMove(): void
+    public function testParentDeletionHidesTheSubtreeAndRejectsFurtherOperations(): void
     {
         $parent = $this->createCategory();
         $child = $this->createCategory();
+        $leaf = $this->createCategory();
+        $other = $this->createCategory();
         $this->moveCategory($child, $parent);
+        $this->moveCategory($leaf, $child);
 
         $this->client->request('DELETE', '/web/categories/'.$parent);
 
-        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
-        self::assertArrayHasKey('error', $this->responseData());
-        $this->assertParent($child, $parent);
-        $this->moveCategory($child, null);
-        $this->client->request('DELETE', '/web/categories/'.$parent);
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
-        $this->assertParent($child, null);
+        self::assertSame('', $this->client->getResponse()->getContent());
+        foreach ([$parent, $child, $leaf] as $id) {
+            foreach (['GET', 'HEAD', 'DELETE'] as $method) {
+                $this->client->request($method, '/web/categories/'.$id);
+                self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+            }
+            $this->client->jsonRequest('PATCH', '/web/categories/'.$id, ['parent_id' => null]);
+            self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        }
+        $this->client->jsonRequest('PATCH', '/web/categories/'.$other, ['parent_id' => $parent]);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        $this->assertParent($other, null);
+        $this->client->request('GET', '/web/categories/');
+        self::assertResponseIsSuccessful();
+        self::assertSame(['categories' => [['id' => $other, 'parent_id' => null]]], $this->responseData());
+        self::assertSame(4, (int) self::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne('SELECT COUNT(*) FROM category'));
     }
 
     // ========================================================================

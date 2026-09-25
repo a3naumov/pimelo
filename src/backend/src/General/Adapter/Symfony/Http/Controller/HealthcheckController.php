@@ -20,7 +20,9 @@ final class HealthcheckController extends AbstractController
         stateless: true,
     )]
     #[OA\Get(summary: 'Check that the service is running', responses: [
-        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(ref: '#/components/schemas/HealthcheckResponse')),
+        new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['status'], properties: [
+            new OA\Property(property: 'status', type: 'string', enum: ['ok'], example: 'ok'),
+        ])),
     ])]
     #[OA\Head(summary: 'Check that the service is running (headers only)', responses: [
         new OA\Response(response: 200, description: 'Same status as GET; no response body.'),
