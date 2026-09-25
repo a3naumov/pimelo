@@ -1,10 +1,10 @@
 {
   "extends": "./tsconfig.app.json",
 
-  // Override to include only test files and clear exclusions.
+  // Include unit and component tests without browser scenarios.
   // Application code imported in tests is automatically included via module resolution.
-  "include": ["src/**/__tests__/*", "env.d.ts"],
-  "exclude": [],
+  "include": ["src/**/*.spec.ts", "env.d.ts"],
+  "exclude": ["src/**/*.e2e.spec.ts"],
 
   "compilerOptions": {
     // Vitest runs in a different environment than the application code.
