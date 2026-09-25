@@ -2,7 +2,11 @@ services:
   frontend:
     profiles: [frontend]
     container_name: ${COMPOSE_PROJECT_NAME}-frontend
-    image: node:24.18.1-alpine3.24
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+      target: production
+    image: ${COMPOSE_PROJECT_NAME}-frontend:production
     volumes:
       - type: bind
         source: ./src/frontend

@@ -68,6 +68,11 @@ services:
 
   frontend:
     profiles: [frontend]
+    build:
+      target: dev
+    image: ${COMPOSE_PROJECT_NAME}-frontend:dev
+    init: true
+    shm_size: 1gb
     ports:
       - "${SERVICE_FRONTEND_PORT:-5173}:5173"
 
