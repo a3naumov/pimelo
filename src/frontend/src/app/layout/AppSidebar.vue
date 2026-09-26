@@ -69,12 +69,15 @@ watch(
               <SidebarMenuItem v-for="item in group.items" :key="item.name">
                 <SidebarMenuButton
                   as-child
-                  :is-active="route.name === item.name"
+                  :is-active="(route.meta.navigationItem ?? route.name) === item.name"
                   :tooltip="item.title"
                 >
                   <RouterLink
                     :to="{ name: item.name }"
                     :aria-label="item.title"
+                    :aria-current="
+                      (route.meta.navigationItem ?? route.name) === item.name ? 'page' : undefined
+                    "
                     @click="setOpenMobile(false)"
                   >
                     <component :is="item.icon" aria-hidden="true" />

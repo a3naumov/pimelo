@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 import {
   Breadcrumb,
   BreadcrumbItem,
+  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
@@ -22,6 +23,16 @@ const route = useRoute();
         <BreadcrumbList>
           <BreadcrumbItem class="hidden sm:inline-flex">{{ route.meta.group }}</BreadcrumbItem>
           <BreadcrumbSeparator class="hidden sm:block" />
+          <template v-if="route.meta.parent">
+            <BreadcrumbItem
+              ><BreadcrumbLink as-child
+                ><RouterLink :to="{ name: route.meta.parent.name }">{{
+                  route.meta.parent.title
+                }}</RouterLink></BreadcrumbLink
+              ></BreadcrumbItem
+            >
+            <BreadcrumbSeparator />
+          </template>
           <BreadcrumbItem>
             <BreadcrumbPage>{{ route.meta.title }}</BreadcrumbPage>
           </BreadcrumbItem>

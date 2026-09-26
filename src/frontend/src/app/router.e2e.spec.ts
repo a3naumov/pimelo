@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Router browser integration', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/web/products/', (route) => route.fulfill({ json: { products: [] } }));
+  });
+
   test('updates the document title after navigation', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle('Overview · Pimelo');
