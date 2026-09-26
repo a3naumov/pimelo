@@ -81,5 +81,6 @@ final class ProductMapperTest extends TestCase
 
         self::assertSame($existing, $mapped);
         self::assertSame($deletedAt, $mapped->deletedAt);
+        self::assertSame($deletedAt, new ProductMapper()->fromDoctrine($mapped)->deletedAt);
     }
 }

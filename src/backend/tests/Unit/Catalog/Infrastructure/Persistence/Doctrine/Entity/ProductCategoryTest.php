@@ -45,6 +45,7 @@ final class ProductCategoryTest extends TestCase
     public static function identityProperties(): iterable
     {
         yield 'product' => ['productId'];
+
         yield 'category' => ['categoryId'];
     }
 }

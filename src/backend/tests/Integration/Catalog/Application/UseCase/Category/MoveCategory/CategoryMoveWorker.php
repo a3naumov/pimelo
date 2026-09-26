@@ -16,6 +16,7 @@ putenv('APP_ENV=test');
 require dirname(__DIR__, 6).'/bootstrap.php';
 
 [$script, $schema, $id, $parentId] = $argv;
+
 if (1 !== preg_match('/\Acategory_move_[a-f0-9]+\z/', $schema)) {
     throw new InvalidArgumentException('Expected an isolated category movement test schema.');
 }

@@ -91,7 +91,9 @@ final class CategoryMoverTest extends TestCase
     public static function invalidAncestry(): iterable
     {
         yield 'descendant parent' => [true, false];
+
         yield 'pre-existing cycle in parent ancestry' => [false, true];
+
         yield 'both facts present' => [true, true];
     }
 }

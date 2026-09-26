@@ -43,6 +43,7 @@ final class MoveCategoryHandlerTest extends TestCase
         $transaction = $this->createMock(CategoryHierarchyTransactionInterface::class);
         $transaction->expects(self::once())->method('run')->willReturnCallback(function (callable $operation): mixed {
             $this->inTransaction = true;
+
             try {
                 return $operation();
             } finally {
@@ -136,6 +137,7 @@ final class MoveCategoryHandlerTest extends TestCase
     public static function missingRecords(): iterable
     {
         yield 'missing category' => [true, 'Category not found.'];
+
         yield 'missing parent' => [false, 'Parent category not found.'];
     }
 }

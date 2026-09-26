@@ -15,6 +15,9 @@ final class Product
         public private(set) string $sku {
             get => $this->sku;
         },
+        public private(set) ?\DateTimeImmutable $deletedAt = null {
+            get => $this->deletedAt;
+        },
     ) {
     }
 }

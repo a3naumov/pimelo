@@ -84,6 +84,7 @@ final class CategoryTest extends TestCase
     public static function readOnlyProperties(): iterable
     {
         yield 'identity' => ['id'];
+
         yield 'parent identity' => ['parentId'];
     }
 }

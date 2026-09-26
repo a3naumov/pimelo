@@ -197,6 +197,7 @@ final class CategoryControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
         self::assertSame('', $this->client->getResponse()->getContent());
+
         foreach ([$parent, $child, $leaf] as $id) {
             foreach (['GET', 'HEAD', 'DELETE'] as $method) {
                 $this->client->request($method, '/web/categories/'.$id);
@@ -276,6 +277,7 @@ final class CategoryControllerTest extends WebTestCase
         $this->client->request($method, $path, server: ['HTTP_ACCEPT' => 'application/json']);
 
         self::assertResponseStatusCodeSame($status);
+
         if (null !== $allow) {
             self::assertResponseHeaderSame('Allow', $allow);
         }
@@ -290,6 +292,7 @@ final class CategoryControllerTest extends WebTestCase
     {
         $exception = $phpError ? new \TypeError('Sensitive internal details.') : new \RuntimeException('Sensitive database details.');
         $repository = $this->createStub(CategoryRepositoryInterface::class);
+
         if ('findById' !== $operation) {
             $repository->method('findById')->willReturn(new Category(Id::fromString('01994731-abcd-7000-8000-000000000000')));
         }
@@ -368,9 +371,11 @@ final class CategoryControllerTest extends WebTestCase
                 yield $method.' '.$id => [$method, '/web/categories/'.$id, Response::HTTP_NOT_FOUND, null];
             }
         }
+
         foreach (['PUT', 'PATCH', 'DELETE', 'OPTIONS'] as $method) {
             yield $method.' collection' => [$method, '/web/categories/', Response::HTTP_METHOD_NOT_ALLOWED, 'GET, HEAD, POST'];
         }
+
         foreach (['POST', 'PUT', 'OPTIONS'] as $method) {
             yield $method.' category' => [$method, '/web/categories/01994731-abcd-7000-8000-000000000000', Response::HTTP_METHOD_NOT_ALLOWED, 'GET, HEAD, PATCH, DELETE'];
         }
@@ -381,30 +386,45 @@ final class CategoryControllerTest extends WebTestCase
         $path = '/web/categories/01994731-abcd-7000-8000-000000000000';
 
         yield 'list' => ['GET', '/web/categories/', 'findAll'];
+
         yield 'show' => ['GET', $path, 'findById'];
+
         yield 'create' => ['POST', '/web/categories/', 'save'];
+
         yield 'move' => ['PATCH', $path, 'save'];
+
         yield 'delete' => ['DELETE', $path, 'delete'];
+
         yield 'PHP error' => ['GET', '/web/categories/', 'findAll', true];
     }
 
     public static function creationConflicts(): iterable
     {
         yield 'missing category' => [new CategoryNotFoundException('Parent category not found.'), Response::HTTP_NOT_FOUND];
+
         yield 'invalid hierarchy' => [new InvalidCategoryHierarchyException('Invalid category hierarchy.'), Response::HTTP_CONFLICT];
     }
 
     public static function invalidMovePayloads(): iterable
     {
         yield 'missing parent' => ['{}', Response::HTTP_UNPROCESSABLE_ENTITY];
+
         yield 'null payload' => ['null', Response::HTTP_UNPROCESSABLE_ENTITY];
+
         yield 'list payload' => ['[{"parent_id":null}]', Response::HTTP_UNPROCESSABLE_ENTITY];
+
         yield 'empty string' => ['{"parent_id":""}', Response::HTTP_UNPROCESSABLE_ENTITY];
+
         yield 'invalid UUID' => ['{"parent_id":"invalid"}', Response::HTTP_UNPROCESSABLE_ENTITY];
+
         yield 'integer' => ['{"parent_id":42}', Response::HTTP_UNPROCESSABLE_ENTITY];
+
         yield 'boolean' => ['{"parent_id":false}', Response::HTTP_UNPROCESSABLE_ENTITY];
+
         yield 'array' => ['{"parent_id":[]}', Response::HTTP_UNPROCESSABLE_ENTITY];
+
         yield 'object' => ['{"parent_id":{}}', Response::HTTP_UNPROCESSABLE_ENTITY];
+
         yield 'invalid JSON' => ['{"parent_id":', Response::HTTP_BAD_REQUEST];
     }
 }

@@ -200,6 +200,7 @@ final class ProductCategoryControllerTest extends WebTestCase
         $this->client->request($method, $path, server: ['HTTP_ACCEPT' => 'application/json']);
 
         self::assertResponseStatusCodeSame($status);
+
         if (null !== $allow) {
             self::assertResponseHeaderSame('Allow', $allow);
         }
@@ -269,8 +270,10 @@ final class ProductCategoryControllerTest extends WebTestCase
     public static function missingResources(): iterable
     {
         yield 'GET missing product' => ['GET', true];
+
         foreach (['PUT', 'DELETE'] as $method) {
             yield $method.' missing product' => [$method, true];
+
             yield $method.' missing category' => [$method, false];
         }
     }
@@ -278,7 +281,9 @@ final class ProductCategoryControllerTest extends WebTestCase
     public static function failingOperations(): iterable
     {
         yield 'list' => ['GET', 'findCategories'];
+
         yield 'attach' => ['PUT', 'attach'];
+
         yield 'detach' => ['DELETE', 'detach'];
     }
 
@@ -287,13 +292,17 @@ final class ProductCategoryControllerTest extends WebTestCase
         foreach (['PUT', 'DELETE'] as $method) {
             foreach (['invalid', '01994731-abcd-7000-0000-000000000000'] as $id) {
                 yield $method.' invalid product '.$id => [$method, '/web/products/'.$id.'/categories/{category}', Response::HTTP_NOT_FOUND, null];
+
                 yield $method.' invalid category '.$id => [$method, '/web/products/{product}/categories/'.$id, Response::HTTP_NOT_FOUND, null];
             }
         }
+
         yield 'GET invalid product' => ['GET', '/web/products/invalid/categories/', Response::HTTP_NOT_FOUND, null];
+
         foreach (['POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as $method) {
             yield $method.' collection' => [$method, '/web/products/{product}/categories/', Response::HTTP_METHOD_NOT_ALLOWED, 'GET, HEAD'];
         }
+
         foreach (['GET', 'POST', 'PATCH', 'OPTIONS'] as $method) {
             yield $method.' relation' => [$method, '/web/products/{product}/categories/{category}', Response::HTTP_METHOD_NOT_ALLOWED, 'PUT, DELETE'];
         }

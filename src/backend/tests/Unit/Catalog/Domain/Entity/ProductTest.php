@@ -46,6 +46,7 @@ final class ProductTest extends TestCase
     public static function readOnlyProperties(): iterable
     {
         yield 'identity' => ['id'];
+
         yield 'SKU' => ['sku'];
     }
 }

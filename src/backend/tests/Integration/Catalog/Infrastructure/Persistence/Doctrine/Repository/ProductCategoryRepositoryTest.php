@@ -209,6 +209,7 @@ final class ProductCategoryRepositoryTest extends KernelTestCase
 
         $filters = $this->entityManager->getFilters();
         $filters->suspend('softdeleteable');
+
         try {
             $stored = $this->entityManager->find($class, $id);
             $this->entityManager->remove($stored);
@@ -228,6 +229,7 @@ final class ProductCategoryRepositoryTest extends KernelTestCase
     public static function relationColumns(): iterable
     {
         yield 'product' => ['product'];
+
         yield 'category' => ['category'];
     }
 }

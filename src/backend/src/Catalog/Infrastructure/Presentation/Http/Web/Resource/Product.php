@@ -6,7 +6,7 @@ namespace App\Catalog\Infrastructure\Presentation\Http\Web\Resource;
 
 use OpenApi\Attributes as OA;
 
-#[OA\Schema(required: ['id', 'sku'])]
+#[OA\Schema(required: ['id', 'sku', 'deleted_at'])]
 final readonly class Product implements \JsonSerializable
 {
     public function __construct(
@@ -14,15 +14,18 @@ final readonly class Product implements \JsonSerializable
         public string $id,
         #[OA\Property(type: 'string', minLength: 1, maxLength: 255, example: 'PRODUCT-001')]
         public string $sku,
+        #[OA\Property(property: 'deleted_at', type: 'string', format: 'date-time', nullable: true)]
+        public ?\DateTimeImmutable $deletedAt = null,
     ) {
     }
 
-    /** @return array{id: string, sku: string} */
+    /** @return array{id: string, sku: string, deleted_at: ?string} */
     public function jsonSerialize(): array
     {
         return [
             'id' => $this->id,
             'sku' => $this->sku,
+            'deleted_at' => $this->deletedAt?->format(\DateTimeInterface::ATOM),
         ];
     }
 }

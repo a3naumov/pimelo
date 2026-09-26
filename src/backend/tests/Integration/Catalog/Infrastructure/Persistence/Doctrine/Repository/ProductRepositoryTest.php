@@ -6,6 +6,7 @@ namespace App\Tests\Integration\Catalog\Infrastructure\Persistence\Doctrine\Repo
 
 use App\Catalog\Domain\Entity\Product;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\Product as DoctrineProduct;
+use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\ProductCategory;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Mapper\ProductMapper;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Repository\ProductRepository;
 use App\General\Adapter\Symfony\Identity\UuidGenerator;
@@ -23,6 +24,7 @@ use Symfony\Component\Uid\UuidV7;
 
 #[CoversClass(ProductRepository::class)]
 #[UsesClass(DoctrineProduct::class)]
+#[UsesClass(ProductCategory::class)]
 #[UsesClass(ProductMapper::class)]
 #[UsesClass(Product::class)]
 #[UsesClass(Id::class)]
@@ -161,6 +163,7 @@ final class ProductRepositoryTest extends KernelTestCase
         self::assertNull($this->entityManager->find(DoctrineProduct::class, $product->id->toString()));
         $filters = $this->entityManager->getFilters();
         $filters->suspend('softdeleteable');
+
         try {
             $stored = $this->entityManager->find(DoctrineProduct::class, $product->id->toString());
             self::assertSame('product-1', $stored->sku);
@@ -196,6 +199,65 @@ final class ProductRepositoryTest extends KernelTestCase
             self::assertTrue($this->entityManager->getFilters()->isEnabled('softdeleteable'));
             self::assertNull($this->repository->findById($product->id));
         }
+    }
+
+    // ========================================================================
+    // Archive operations: filters, identity map, and irreversible removal
+    // ========================================================================
+
+    public function testDeletedReadsRestoreFiltersAndRefreshCachedEntities(): void
+    {
+        $product = $this->repository->save(new Product($this->idGenerator->generate(), 'archived'));
+        $this->repository->delete($product);
+
+        $deleted = $this->repository->findAll(deleted: true);
+        self::assertCount(1, $deleted);
+        self::assertNotNull($deleted[0]->deletedAt);
+        self::assertEquals($deleted[0], $this->repository->findById($product->id, includeDeleted: true));
+        self::assertTrue($this->entityManager->getFilters()->isEnabled('softdeleteable'));
+        self::assertSame([], $this->repository->findAll());
+        self::assertNull($this->repository->findById($product->id));
+
+        $restored = $this->repository->restore($product->id);
+        self::assertEquals($product, $restored);
+        self::assertSame([], $this->repository->findAll(deleted: true));
+        self::assertEquals([$restored], $this->repository->findAll());
+        self::assertTrue($this->entityManager->getFilters()->isEnabled('softdeleteable'));
+    }
+
+    public function testArchiveReadsPreserveAnAlreadySuspendedFilter(): void
+    {
+        $filters = $this->entityManager->getFilters();
+        $filters->suspend('softdeleteable');
+
+        try {
+            self::assertSame([], $this->repository->findAll(deleted: true));
+            self::assertNull($this->repository->findById($this->idGenerator->generate(), includeDeleted: true));
+            self::assertFalse($filters->isEnabled('softdeleteable'));
+        } finally {
+            $filters->restore('softdeleteable');
+        }
+    }
+
+    public function testPermanentDeleteRemovesCachedEntitiesAndReleasesSku(): void
+    {
+        $product = $this->repository->save(new Product($this->idGenerator->generate(), 'reusable'));
+        $link = new ProductCategory(Uuid::fromString($product->id->toString()), Uuid::v7());
+        $this->entityManager->persist($link);
+        $this->entityManager->flush();
+        $this->repository->delete($product);
+        self::assertNotNull($this->repository->findById($product->id, includeDeleted: true));
+
+        self::assertTrue($this->repository->deletePermanently($product->id));
+        self::assertFalse($this->entityManager->contains($link));
+        self::assertNull($this->entityManager->find(ProductCategory::class, ['productId' => $link->productId, 'categoryId' => $link->categoryId]));
+        self::assertNull($this->repository->findById($product->id, includeDeleted: true));
+        self::assertFalse($this->repository->deletePermanently($product->id));
+        self::assertNull($this->repository->restore($product->id));
+        $this->entityManager->flush();
+        self::assertSame([], $this->repository->findAll(deleted: true));
+        $replacement = $this->repository->save(new Product($this->idGenerator->generate(), 'reusable'));
+        self::assertFalse($product->id->equals($replacement->id));
     }
 
     // ========================================================================

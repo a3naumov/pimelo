@@ -101,8 +101,10 @@ final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
 
             $blocked = false;
             $deadline = microtime(true) + 3;
+
             do {
                 $blocked = 0 < (int) $connection->fetchOne('SELECT COUNT(*) FROM pg_locks WHERE pid = ? AND NOT granted', [$workerPid]);
+
                 if (!$blocked) {
                     usleep(10000);
                 }
@@ -123,6 +125,7 @@ final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
             self::assertSame(0, proc_close($process));
             $process = null;
             $manager->clear();
+
             if ('move' === $operation) {
                 self::assertNull($repository->findById($first->id)->parentId);
                 self::assertEquals($first->id, $repository->findById($second->id)->parentId);
@@ -140,8 +143,10 @@ final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
             if ($connection->isTransactionActive()) {
                 $connection->rollBack();
             }
+
             if (\is_resource($process)) {
                 proc_terminate($process);
+
                 foreach ($pipes as $pipe) {
                     if (\is_resource($pipe)) {
                         fclose($pipe);
@@ -161,7 +166,9 @@ final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
     public static function competingOperations(): iterable
     {
         yield 'opposing move' => ['move', 'conflict'];
+
         yield 'deleted category' => ['delete_category', 'missing'];
+
         yield 'deleted destination' => ['delete_parent', 'missing'];
     }
 }

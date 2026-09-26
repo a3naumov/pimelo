@@ -123,6 +123,7 @@ final class CategoryRepositoryTest extends KernelTestCase
         self::assertNull($manager->find(DoctrineCategory::class, $root->id->toString()));
         $filters = $manager->getFilters();
         $filters->suspend('softdeleteable');
+
         try {
             $stored = $manager->find(DoctrineCategory::class, $root->id->toString());
             self::assertInstanceOf(\DateTimeImmutable::class, $stored->deletedAt);

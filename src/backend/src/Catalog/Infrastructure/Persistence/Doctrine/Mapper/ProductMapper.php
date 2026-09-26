@@ -16,6 +16,7 @@ final readonly class ProductMapper
         return new Product(
             id: Id::fromString($doctrineProduct->id->toRfc4122()),
             sku: $doctrineProduct->sku,
+            deletedAt: $doctrineProduct->deletedAt,
         );
     }
 
