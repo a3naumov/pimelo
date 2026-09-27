@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTranslation } from '@/shared/i18n';
 import { RouterLink, useRoute } from 'vue-router';
 import {
   Breadcrumb,
@@ -11,6 +12,8 @@ import {
 import { Separator } from '@/shared/ui/separator';
 import { SidebarInset, SidebarTrigger } from '@/shared/ui/sidebar';
 
+const { t } = useTranslation();
+
 const route = useRoute();
 </script>
 
@@ -21,20 +24,22 @@ const route = useRoute();
       <Separator orientation="vertical" class="my-4" />
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem class="hidden sm:inline-flex">{{ route.meta.group }}</BreadcrumbItem>
+          <BreadcrumbItem class="hidden sm:inline-flex">{{
+            route.meta.groupKey ? t(route.meta.groupKey) : ''
+          }}</BreadcrumbItem>
           <BreadcrumbSeparator class="hidden sm:block" />
           <template v-if="route.meta.parent">
             <BreadcrumbItem
               ><BreadcrumbLink as-child
                 ><RouterLink :to="{ name: route.meta.parent.name }">{{
-                  route.meta.parent.title
+                  t(route.meta.parent.titleKey)
                 }}</RouterLink></BreadcrumbLink
               ></BreadcrumbItem
             >
             <BreadcrumbSeparator />
           </template>
           <BreadcrumbItem>
-            <BreadcrumbPage>{{ route.meta.title }}</BreadcrumbPage>
+            <BreadcrumbPage>{{ route.meta.titleKey ? t(route.meta.titleKey) : '' }}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>

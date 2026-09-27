@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTranslation } from '@/shared/i18n';
 import { computed } from 'vue';
 import { getApiError } from '@/shared/api/errors';
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert';
@@ -14,6 +15,8 @@ import {
 } from '@/shared/ui/alert-dialog';
 import { Spinner } from '@/shared/ui/spinner';
 import type { Product } from '../../model/product/schemas';
+
+const { t } = useTranslation();
 
 const props = defineProps<{ product: Product | null; pending: boolean; error: unknown }>();
 const permanent = computed(() => !!props.product?.deleted_at);
@@ -32,27 +35,36 @@ const emit = defineEmits<{ cancel: []; confirm: [] }>();
     <AlertDialogContent>
       <AlertDialogHeader>
         <AlertDialogTitle>{{
-          permanent ? 'Permanently delete product?' : 'Delete product?'
+          permanent
+            ? t('catalog.product.confirm.permanentDelete')
+            : t('catalog.product.confirm.delete')
         }}</AlertDialogTitle>
         <AlertDialogDescription>
           <template v-if="permanent">
-            {{ product?.sku }} and its category links will be permanently deleted. This cannot be
-            undone. Its SKU will become available for reuse.
+            {{
+              t('catalog.product.confirm.permanentDeleteDescription', { sku: product?.sku ?? '' })
+            }}
           </template>
           <template v-else>
-            {{ product?.sku }} will be removed from the catalog. Its SKU will remain reserved.
+            {{ t('catalog.product.confirm.deleteDescription', { sku: product?.sku ?? '' }) }}
           </template>
         </AlertDialogDescription>
       </AlertDialogHeader>
       <Alert v-if="error" variant="destructive">
-        <AlertTitle>Could not delete product</AlertTitle>
-        <AlertDescription>{{ getApiError(error).message }}</AlertDescription>
+        <AlertTitle>{{ t('catalog.product.error.delete') }}</AlertTitle>
+        <AlertDescription>{{ getApiError(error, t).message }}</AlertDescription>
       </Alert>
       <AlertDialogFooter>
-        <AlertDialogCancel :disabled="pending">Cancel</AlertDialogCancel>
+        <AlertDialogCancel :disabled="pending">{{ t('common.cancel') }}</AlertDialogCancel>
         <Button variant="destructive" :disabled="pending" @click="emit('confirm')">
           <Spinner v-if="pending" data-icon="inline-start" />
-          {{ pending ? 'Deleting…' : permanent ? 'Delete permanently' : 'Delete product' }}
+          {{
+            pending
+              ? t('common.deleting')
+              : permanent
+                ? t('catalog.product.deletePermanently')
+                : t('catalog.product.delete')
+          }}
         </Button>
       </AlertDialogFooter>
     </AlertDialogContent>

@@ -1,3 +1,4 @@
+import { createAppI18n } from '@/shared/i18n';
 import { h, nextTick } from 'vue';
 import { afterEach, describe, expect, it } from 'vitest';
 import { enableAutoUnmount, mount } from '@vue/test-utils';
@@ -12,14 +13,22 @@ async function mountContent(path = '/') {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/', component: page, meta: { title: 'Overview', group: 'Workspace' } },
-      { path: '/products', component: page, meta: { title: 'Products', group: 'Catalog' } },
+      {
+        path: '/',
+        component: page,
+        meta: { titleKey: 'workspace.overview.title', groupKey: 'workspace.title' },
+      },
+      {
+        path: '/products',
+        component: page,
+        meta: { titleKey: 'catalog.product.title', groupKey: 'catalog.title' },
+      },
     ],
   });
   await router.push(path);
   await router.isReady();
   const wrapper = mount(() => h(SidebarProvider, () => h(AppContent)), {
-    global: { plugins: [router] },
+    global: { plugins: [createAppI18n(), router] },
   });
 
   return { wrapper, router };

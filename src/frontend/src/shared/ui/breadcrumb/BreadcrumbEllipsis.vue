@@ -1,8 +1,11 @@
 <script lang="ts" setup>
+import { useTranslation } from '@/shared/i18n';
 import type { HTMLAttributes } from 'vue';
 
 import { MoreHorizontalIcon } from '@lucide/vue';
 import { cn } from '@/shared/lib/utils';
+
+const { t } = useTranslation();
 
 const props = defineProps<{
   class?: HTMLAttributes['class'];
@@ -19,6 +22,6 @@ const props = defineProps<{
     <slot>
       <MoreHorizontalIcon />
     </slot>
-    <span class="sr-only">More</span>
+    <span class="sr-only">{{ t('common.more') }}</span>
   </span>
 </template>

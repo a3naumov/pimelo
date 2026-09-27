@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTranslation } from '@/shared/i18n';
 import { computed, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { ToggleGroup, ToggleGroupItem } from '@/shared/ui/toggle-group';
@@ -11,6 +12,8 @@ import ProductsTable from '../../ui/product/ProductsTable.vue';
 import ProductDeleteDialog from '../../ui/product/ProductDeleteDialog.vue';
 import ProductRestoreDialog from '../../ui/product/ProductRestoreDialog.vue';
 import ProductLoadError from '../../ui/product/ProductLoadError.vue';
+
+const { t } = useTranslation();
 
 const route = useRoute();
 const router = useRouter();
@@ -86,11 +89,15 @@ async function confirmDelete() {
   <section class="flex flex-col gap-6" aria-labelledby="products-title">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h1 id="products-title" class="text-2xl font-semibold tracking-tight">Products</h1>
-        <p class="text-muted-foreground">Manage your product catalog.</p>
+        <h1 id="products-title" class="text-2xl font-semibold tracking-tight">
+          {{ t('catalog.product.title') }}
+        </h1>
+        <p class="text-muted-foreground">{{ t('catalog.product.description') }}</p>
       </div>
       <Button as-child
-        ><RouterLink :to="{ name: 'catalog.products.create' }">Create product</RouterLink></Button
+        ><RouterLink :to="{ name: 'catalog.products.create' }">{{
+          t('catalog.product.create')
+        }}</RouterLink></Button
       >
     </div>
     <ToggleGroup
@@ -98,14 +105,19 @@ async function confirmDelete() {
       variant="outline"
       :model-value="status"
       :disabled="pending"
-      aria-label="Product status"
+      :aria-label="t('catalog.product.status')"
       @update:model-value="changeStatus"
     >
-      <ToggleGroupItem value="active">Active</ToggleGroupItem>
-      <ToggleGroupItem value="deleted">Deleted</ToggleGroupItem>
+      <ToggleGroupItem value="active">{{ t('catalog.product.active') }}</ToggleGroupItem>
+      <ToggleGroupItem value="deleted">{{ t('catalog.product.deleted') }}</ToggleGroupItem>
     </ToggleGroup>
     <ProductLoadError v-if="error" :error="error" :pending="isFetching" @retry="refetch()" />
-    <div v-if="isPending" class="flex flex-col gap-3" role="status" aria-label="Loading products">
+    <div
+      v-if="isPending"
+      class="flex flex-col gap-3"
+      role="status"
+      :aria-label="t('catalog.product.loadingList')"
+    >
       <Skeleton v-for="row in 4" :key="row" class="h-12 w-full" />
     </div>
     <template v-else-if="data">
@@ -119,12 +131,14 @@ async function confirmDelete() {
       <Empty v-else
         ><EmptyHeader
           ><EmptyTitle>{{
-            status === 'deleted' ? 'No deleted products' : 'No products yet'
+            status === 'deleted'
+              ? t('catalog.product.emptyDeleted.title')
+              : t('catalog.product.empty.title')
           }}</EmptyTitle
           ><EmptyDescription>{{
             status === 'deleted'
-              ? 'Deleted products will appear here until restored or permanently deleted.'
-              : 'Create your first product to start your catalog.'
+              ? t('catalog.product.emptyDeleted.description')
+              : t('catalog.product.empty.description')
           }}</EmptyDescription></EmptyHeader
         ></Empty
       >

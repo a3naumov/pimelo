@@ -1,3 +1,4 @@
+import { useTranslation } from '@/shared/i18n';
 import { computed, ref } from 'vue';
 import { useForm } from '@tanstack/vue-form';
 import { getApiError, type ApiError } from '@/shared/api/errors';
@@ -11,6 +12,7 @@ interface ProductFormOptions {
 }
 
 export function useProductForm(options: ProductFormOptions) {
+  const { t } = useTranslation();
   const error = ref<ApiError | null>(null);
   const savedValues = ref<ProductInput>({ sku: options.initialSku ?? '' });
   const form = useForm({
@@ -28,7 +30,7 @@ export function useProductForm(options: ProductFormOptions) {
         savedValues.value = saved;
         form.reset(saved);
       } catch (cause) {
-        error.value = getApiError(cause);
+        error.value = getApiError(cause, t);
 
         if (error.value.status === 409) {
           error.value.fields.sku = error.value.message;
@@ -62,5 +64,27 @@ export function useProductForm(options: ProductFormOptions) {
     handleChange(String(value));
   }
 
-  return { form, error, isSubmitting, fieldsDisabled, submitDisabled, submit, changeSku };
+  function formatValidationError(issue: { message: string } | undefined) {
+    const key = issue?.message;
+
+    if (
+      key === 'catalog.product.validation.required' ||
+      key === 'catalog.product.validation.tooLong'
+    ) {
+      return { message: t(key) };
+    }
+
+    return { message: t('common.validation.invalid') };
+  }
+
+  return {
+    formatValidationError,
+    form,
+    error,
+    isSubmitting,
+    fieldsDisabled,
+    submitDisabled,
+    submit,
+    changeSku,
+  };
 }

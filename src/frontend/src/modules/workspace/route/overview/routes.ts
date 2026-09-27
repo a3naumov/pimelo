@@ -5,6 +5,6 @@ export const overviewRoutes: RouteRecordRaw[] = [
     path: '/',
     name: 'workspace.overview',
     component: () => import('../../page/overview/OverviewPage.vue'),
-    meta: { title: 'Overview', group: 'Workspace' },
+    meta: { titleKey: 'workspace.overview.title', groupKey: 'workspace.title' },
   },
 ];

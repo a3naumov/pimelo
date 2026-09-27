@@ -1,3 +1,4 @@
+import { createAppI18n } from '@/shared/i18n';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, mount } from '@vue/test-utils';
 import { createMemoryHistory, createRouter } from 'vue-router';
@@ -18,7 +19,7 @@ describe('App layout composition', () => {
     await router.push('/categories');
     await router.isReady();
     const wrapper = mount(App, {
-      global: { plugins: [router, [VueQueryPlugin, { queryClient }]] },
+      global: { plugins: [createAppI18n(), router, [VueQueryPlugin, { queryClient }]] },
     });
     const navigation = wrapper.get('nav[aria-label="Main navigation"]').element;
     const main = wrapper.get('main').element;

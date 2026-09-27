@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTranslation } from '@/shared/i18n';
 import type { DialogContentEmits, DialogContentProps } from 'reka-ui';
 
 import type { HTMLAttributes } from 'vue';
@@ -8,6 +9,8 @@ import { DialogClose, DialogContent, DialogPortal, useForwardPropsEmits } from '
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 import SheetOverlay from './SheetOverlay.vue';
+
+const { t } = useTranslation();
 
 interface SheetContentProps extends DialogContentProps {
   class?: HTMLAttributes['class'];
@@ -49,7 +52,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits);
       <DialogClose v-if="showCloseButton" data-slot="sheet-close" as-child>
         <Button variant="ghost" class="absolute top-3 right-3" size="icon-sm">
           <XIcon data-icon="inline-start" aria-hidden="true" />
-          <span class="sr-only">Close</span>
+          <span class="sr-only">{{ t('common.close') }}</span>
         </Button>
       </DialogClose>
     </DialogContent>

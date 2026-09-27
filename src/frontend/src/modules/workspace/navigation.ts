@@ -1,6 +1,8 @@
 import { LayoutDashboardIcon } from '@lucide/vue';
 
 export const workspaceNavigation = {
-  title: 'Workspace',
-  items: [{ name: 'workspace.overview', title: 'Overview', icon: LayoutDashboardIcon }],
+  titleKey: 'workspace.title',
+  items: [
+    { name: 'workspace.overview', titleKey: 'workspace.overview.title', icon: LayoutDashboardIcon },
+  ],
 } as const;

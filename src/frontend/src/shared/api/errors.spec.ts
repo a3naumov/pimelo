@@ -1,7 +1,14 @@
 import { AxiosError, AxiosHeaders } from 'axios';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { getApiError } from './errors';
+import { getApiError as parseApiError } from './errors';
+import { createAppI18n } from '@/shared/i18n';
+
+function getApiError(error: unknown) {
+  const i18n = createAppI18n();
+
+  return parseApiError(error, i18n.global.t);
+}
 
 function httpError(status: number, data: unknown) {
   return new AxiosError('Request failed', undefined, undefined, undefined, {

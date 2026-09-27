@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { useTranslation } from '@/shared/i18n';
 import type { HTMLAttributes } from 'vue';
 
 import { Loader2Icon } from '@lucide/vue';
 import { cn } from '@/shared/lib/utils';
+
+const { t } = useTranslation();
 
 const props = defineProps<{
   class?: HTMLAttributes['class'];
@@ -10,5 +13,9 @@ const props = defineProps<{
 </script>
 
 <template>
-  <Loader2Icon role="status" aria-label="Loading" :class="cn('size-4 animate-spin', props.class)" />
+  <Loader2Icon
+    role="status"
+    :aria-label="t('common.loading')"
+    :class="cn('size-4 animate-spin', props.class)"
+  />
 </template>

@@ -5,17 +5,17 @@ export const productRoutes: RouteRecordRaw[] = [
     path: '/products',
     name: 'catalog.products',
     component: () => import('../../page/product/ProductsPage.vue'),
-    meta: { title: 'Products', group: 'Catalog' },
+    meta: { titleKey: 'catalog.product.title', groupKey: 'catalog.title' },
   },
   {
     path: '/products/new',
     name: 'catalog.products.create',
     component: () => import('../../page/product/ProductCreatePage.vue'),
     meta: {
-      title: 'Create product',
-      group: 'Catalog',
+      titleKey: 'catalog.product.create',
+      groupKey: 'catalog.title',
       navigationItem: 'catalog.products',
-      parent: { name: 'catalog.products', title: 'Products' },
+      parent: { name: 'catalog.products', titleKey: 'catalog.product.title' },
     },
   },
   {
@@ -23,10 +23,10 @@ export const productRoutes: RouteRecordRaw[] = [
     name: 'catalog.products.edit',
     component: () => import('../../page/product/ProductEditPage.vue'),
     meta: {
-      title: 'Edit product',
-      group: 'Catalog',
+      titleKey: 'catalog.product.edit',
+      groupKey: 'catalog.title',
       navigationItem: 'catalog.products',
-      parent: { name: 'catalog.products', title: 'Products' },
+      parent: { name: 'catalog.products', titleKey: 'catalog.product.title' },
     },
   },
   {

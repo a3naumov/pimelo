@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTranslation } from '@/shared/i18n';
 import { computed, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { Button } from '@/shared/ui/button';
@@ -12,6 +13,8 @@ import ProductForm from '../../ui/product/ProductForm.vue';
 import ProductDeleteDialog from '../../ui/product/ProductDeleteDialog.vue';
 import ProductRestoreDialog from '../../ui/product/ProductRestoreDialog.vue';
 import ProductLoadError from '../../ui/product/ProductLoadError.vue';
+
+const { t } = useTranslation();
 
 const route = useRoute();
 const router = useRouter();
@@ -30,7 +33,7 @@ const pending = computed(
 const deleting = ref(false);
 const restoringProduct = ref<Product | null>(null);
 const canShowProduct = computed(
-  () => data.value && (!error.value || getApiError(error.value).status !== 404),
+  () => data.value && (!error.value || getApiError(error.value, t).status !== 404),
 );
 
 async function save(input: ProductInput): Promise<ProductInput> {
@@ -99,20 +102,22 @@ async function confirmDelete() {
 
 <template>
   <section class="flex flex-col gap-6" aria-labelledby="edit-product-title">
-    <h1 id="edit-product-title" class="text-2xl font-semibold tracking-tight">Edit product</h1>
-    <Badge v-if="isDeleted" variant="secondary">Deleted</Badge>
+    <h1 id="edit-product-title" class="text-2xl font-semibold tracking-tight">
+      {{ t('catalog.product.edit') }}
+    </h1>
+    <Badge v-if="isDeleted" variant="secondary">{{ t('catalog.product.deleted') }}</Badge>
     <ProductLoadError v-if="error" :error="error" :pending="isFetching" @retry="refetch()" />
     <Skeleton
       v-if="isPending"
       class="h-36 w-full max-w-xl"
       role="status"
-      aria-label="Loading product"
+      :aria-label="t('catalog.product.loading')"
     />
 
     <template v-else-if="data && canShowProduct">
       <Alert v-if="isDeleted">
-        <AlertTitle>Product is deleted</AlertTitle>
-        <AlertDescription>Restore this product before editing it.</AlertDescription>
+        <AlertTitle>{{ t('catalog.product.deletedTitle') }}</AlertTitle>
+        <AlertDescription>{{ t('catalog.product.deletedDescription') }}</AlertDescription>
       </Alert>
 
       <ProductForm
@@ -120,15 +125,15 @@ async function confirmDelete() {
         :initial-sku="data.sku"
         require-changes
         :disabled="isDeleted || pending || deleting || !!restoringProduct"
-        submit-label="Save changes"
+        :submit-label="t('common.saveChanges')"
         :on-save="save"
         @cancel="cancel"
       />
 
       <div class="flex flex-wrap gap-2">
-        <Button v-if="isDeleted" :disabled="pending" @click="selectRestoreProduct(data)">
-          Restore product
-        </Button>
+        <Button v-if="isDeleted" :disabled="pending" @click="selectRestoreProduct(data)">{{
+          t('catalog.product.restore')
+        }}</Button>
         <Button
           variant="destructive"
           :disabled="pending"
@@ -137,12 +142,14 @@ async function confirmDelete() {
             purge.reset();
             deleting = true;
           "
-          >{{ isDeleted ? 'Delete permanently' : 'Delete product' }}</Button
+          >{{
+            isDeleted ? t('catalog.product.deletePermanently') : t('catalog.product.delete')
+          }}</Button
         >
         <Button variant="outline" as-child
           ><RouterLink
             :to="{ name: 'catalog.products', query: isDeleted ? { status: 'deleted' } : {} }"
-            >Back to products</RouterLink
+            >{{ t('catalog.product.back') }}</RouterLink
           ></Button
         >
       </div>

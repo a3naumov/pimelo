@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTranslation } from '@/shared/i18n';
 import { RouterLink } from 'vue-router';
 import { ChevronDownIcon, PencilIcon, Trash2Icon, RotateCcwIcon } from '@lucide/vue';
 import { FlexRender } from '@tanstack/vue-table';
@@ -16,13 +17,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { Product } from '../../model/product/schemas';
 import { useProductsTable } from '../../table/product/useProductsTable';
 
+const { t } = useTranslation();
+
 const props = defineProps<{ products: Product[]; pending?: boolean }>();
 const emit = defineEmits<{ delete: [product: Product]; restore: [product: Product] }>();
 const { table } = useProductsTable(() => props.products);
 </script>
 
 <template>
-  <Table aria-label="Products">
+  <Table :aria-label="t('catalog.product.title')">
     <TableHeader>
       <TableRow v-for="group in table.getHeaderGroups()" :key="group.id">
         <TableHead v-for="header in group.headers" :key="header.id">
@@ -39,10 +42,8 @@ const { table } = useProductsTable(() => props.products);
                 variant="outline"
                 size="sm"
                 :disabled="pending"
-                :aria-label="`Actions for ${row.original.sku}`"
-              >
-                Actions
-                <ChevronDownIcon data-icon="inline-end" />
+                :aria-label="t('catalog.product.actionsFor', { sku: row.original.sku })"
+                >{{ t('common.actions') }}<ChevronDownIcon data-icon="inline-end" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -51,20 +52,22 @@ const { table } = useProductsTable(() => props.products);
                   <RouterLink
                     :to="{ name: 'catalog.products.edit', params: { id: row.original.id } }"
                   >
-                    <PencilIcon />
-                    Edit
-                  </RouterLink>
+                    <PencilIcon />{{ t('common.edit') }}</RouterLink
+                  >
                 </DropdownMenuItem>
                 <DropdownMenuItem v-else @select="emit('restore', row.original)">
-                  <RotateCcwIcon />
-                  Restore
-                </DropdownMenuItem>
+                  <RotateCcwIcon />{{ t('common.restore') }}</DropdownMenuItem
+                >
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem variant="destructive" @select="emit('delete', row.original)">
                   <Trash2Icon />
-                  {{ row.original.deleted_at ? 'Delete permanently' : 'Delete' }}
+                  {{
+                    row.original.deleted_at
+                      ? t('catalog.product.deletePermanently')
+                      : t('common.delete')
+                  }}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>
@@ -78,9 +81,9 @@ const { table } = useProductsTable(() => props.products);
               {{ row.original.sku }}
             </RouterLink>
             <FlexRender v-else :cell="cell" />
-            <Badge v-if="cell.column.id === 'sku' && row.original.deleted_at" variant="secondary"
-              >Deleted</Badge
-            >
+            <Badge v-if="cell.column.id === 'sku' && row.original.deleted_at" variant="secondary">{{
+              t('catalog.product.deleted')
+            }}</Badge>
           </div>
         </TableCell>
       </TableRow>

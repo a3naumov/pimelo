@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { useTranslation } from '@/shared/i18n';
 import type { HTMLAttributes } from 'vue';
 
 import { PanelLeftIcon } from '@lucide/vue';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 import { useSidebar } from './utils';
+
+const { t } = useTranslation();
 
 const props = defineProps<{
   class?: HTMLAttributes['class'];
@@ -24,6 +27,6 @@ const { toggleSidebar, isMobile, openMobile, open } = useSidebar();
     @click="toggleSidebar"
   >
     <PanelLeftIcon class="cn-rtl-flip" data-icon="inline-start" aria-hidden="true" />
-    <span class="sr-only">Toggle Sidebar</span>
+    <span class="sr-only">{{ t('common.sidebar.toggle') }}</span>
   </Button>
 </template>

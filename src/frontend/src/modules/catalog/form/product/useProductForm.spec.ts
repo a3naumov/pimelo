@@ -1,3 +1,4 @@
+import { createAppI18n } from '@/shared/i18n';
 import { defineComponent, h, nextTick, reactive } from 'vue';
 import { enableAutoUnmount, mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -16,6 +17,7 @@ function setup(options: Parameters<typeof useProductForm>[0]) {
         return () => h(result.form.Field, { name: 'sku' }, { default: () => h('input') });
       },
     }),
+    { global: { plugins: [createAppI18n()] } },
   );
 
   return result;

@@ -1,3 +1,4 @@
+import { createAppI18n } from '@/shared/i18n';
 import { defineComponent, h, nextTick, ref } from 'vue';
 import { enableAutoUnmount, mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -16,6 +17,7 @@ function setup(products: Parameters<typeof useProductsTable>[0]) {
         return () => h('div');
       },
     }),
+    { global: { plugins: [createAppI18n()] } },
   );
 
   return result.table;

@@ -1,3 +1,4 @@
+import type { Translate } from '@/shared/i18n';
 import axios from 'axios';
 import { z } from 'zod';
 
@@ -12,20 +13,20 @@ export interface ApiError {
   fields: Record<string, string>;
 }
 
-export function getApiError(error: unknown): ApiError {
+export function getApiError(error: unknown, t: Translate): ApiError {
   if (error instanceof z.ZodError) {
-    return { message: 'The server returned an invalid response. Please try again.', fields: {} };
+    return { message: t('common.error.invalidResponse'), fields: {} };
   }
 
   if (!axios.isAxiosError(error)) {
-    return { message: 'Something went wrong. Please try again.', fields: {} };
+    return { message: t('common.error.unexpected'), fields: {} };
   }
 
   const status = error.response?.status;
 
   if (!status) {
     return {
-      message: 'Could not reach the server. Check your connection and try again.',
+      message: t('common.error.network'),
       fields: {},
     };
   }
@@ -37,14 +38,14 @@ export function getApiError(error: unknown): ApiError {
       title,
     ]),
   );
-  let message = 'The request could not be completed. Please try again.';
+  let message = t('common.error.request');
 
   if (status >= 500) {
-    message = 'The server could not complete the request. Please try again.';
+    message = t('common.error.server');
   } else if (status === 404) {
-    message = 'This resource was not found. It may have been deleted.';
+    message = t('common.error.notFound');
   } else if (status === 422) {
-    message = 'Please check the highlighted fields.';
+    message = t('common.validation.invalid');
   } else if (parsed.success && parsed.data.error) {
     message = parsed.data.error;
   }

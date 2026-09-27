@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useTranslation } from '@/shared/i18n';
 import type { Component } from 'vue';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/shared/ui/empty';
+
+const { t } = useTranslation();
 
 defineProps<{
   title: string;
@@ -20,8 +23,8 @@ defineProps<{
         <EmptyMedia variant="icon">
           <component :is="icon" aria-hidden="true" />
         </EmptyMedia>
-        <EmptyTitle>Hello world</EmptyTitle>
-        <EmptyDescription>Welcome to your Pimelo workspace.</EmptyDescription>
+        <EmptyTitle>{{ t('workspace.placeholder.title') }}</EmptyTitle>
+        <EmptyDescription>{{ t('workspace.placeholder.description') }}</EmptyDescription>
       </EmptyHeader>
     </Empty>
   </section>

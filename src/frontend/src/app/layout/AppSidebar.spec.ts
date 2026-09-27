@@ -1,3 +1,4 @@
+import { createAppI18n } from '@/shared/i18n';
 import { h } from 'vue';
 import { afterEach, describe, expect, it } from 'vitest';
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
@@ -20,7 +21,7 @@ async function mountSidebar(path = '/') {
   await router.push(path);
   await router.isReady();
   const wrapper = mount(() => h(SidebarProvider, () => h(AppSidebar)), {
-    global: { plugins: [router] },
+    global: { plugins: [createAppI18n(), router] },
   });
 
   return { wrapper, router };

@@ -5,6 +5,6 @@ export const categoryRoutes: RouteRecordRaw[] = [
     path: '/categories',
     name: 'catalog.categories',
     component: () => import('../../page/category/CategoriesPage.vue'),
-    meta: { title: 'Categories', group: 'Catalog' },
+    meta: { titleKey: 'catalog.category.title', groupKey: 'catalog.title' },
   },
 ];

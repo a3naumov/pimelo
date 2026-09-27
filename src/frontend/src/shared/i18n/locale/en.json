@@ -1,0 +1,107 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "more": "More",
+    "loading": "Loading",
+    "tryAgain": "Try again",
+    "saveChanges": "Save changes",
+    "saving": "Saving…",
+    "actions": "Actions",
+    "edit": "Edit",
+    "delete": "Delete",
+    "restore": "Restore",
+    "deleting": "Deleting…",
+    "restoring": "Restoring…",
+    "breadcrumb": "breadcrumb",
+    "sidebar": {
+      "toggle": "Toggle Sidebar",
+      "title": "Sidebar",
+      "description": "Displays the mobile sidebar."
+    },
+    "validation": {
+      "invalid": "Please check the highlighted fields."
+    },
+    "error": {
+      "invalidResponse": "The server returned an invalid response. Please try again.",
+      "unexpected": "Something went wrong. Please try again.",
+      "network": "Could not reach the server. Check your connection and try again.",
+      "request": "The request could not be completed. Please try again.",
+      "server": "The server could not complete the request. Please try again.",
+      "notFound": "This resource was not found. It may have been deleted."
+    }
+  },
+  "app": {
+    "home": "Pimelo home",
+    "description": "Product workspace",
+    "closeNavigation": "Close navigation",
+    "mainNavigation": "Main navigation",
+    "documentTitle": "{title} · Pimelo"
+  },
+  "workspace": {
+    "title": "Workspace",
+    "overview": {
+      "title": "Overview",
+      "description": "A clear home for your product information."
+    },
+    "placeholder": {
+      "title": "Hello world",
+      "description": "Welcome to your Pimelo workspace."
+    }
+  },
+  "catalog": {
+    "title": "Catalog",
+    "category": {
+      "title": "Categories",
+      "description": "Give your catalog a clear, organized structure."
+    },
+    "product": {
+      "title": "Products",
+      "description": "Manage your product catalog.",
+      "create": "Create product",
+      "edit": "Edit product",
+      "delete": "Delete product",
+      "restore": "Restore product",
+      "deletePermanently": "Delete permanently",
+      "back": "Back to products",
+      "active": "Active",
+      "deleted": "Deleted",
+      "status": "Product status",
+      "loading": "Loading product",
+      "loadingList": "Loading products",
+      "sku": "SKU",
+      "id": "ID",
+      "actionsFor": "Actions for {sku}",
+      "skuDescription": "A unique identifier, up to 255 characters.",
+      "validation": {
+        "required": "SKU must be a non-empty string.",
+        "tooLong": "SKU must not exceed 255 characters."
+      },
+      "empty": {
+        "title": "No products yet",
+        "description": "Create your first product to start your catalog."
+      },
+      "emptyDeleted": {
+        "title": "No deleted products",
+        "description": "Deleted products will appear here until restored or permanently deleted."
+      },
+      "deletedTitle": "Product is deleted",
+      "deletedDescription": "Restore this product before editing it.",
+      "error": {
+        "save": "Could not save product",
+        "delete": "Could not delete product",
+        "restore": "Could not restore product",
+        "load": "Could not load products",
+        "notFound": "Product not found"
+      },
+      "confirm": {
+        "delete": "Delete product?",
+        "permanentDelete": "Permanently delete product?",
+        "restore": "Restore product?",
+        "deleteDescription": "{sku} will be removed from the catalog. Its SKU will remain reserved.",
+        "permanentDeleteDescription": "{sku} and its category links will be permanently deleted. This cannot be undone. Its SKU will become available for reuse.",
+        "restoreDescription": "{sku} will return to the active catalog with its SKU and category links."
+      }
+    }
+  }
+}

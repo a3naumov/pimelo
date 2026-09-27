@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTranslation } from '@/shared/i18n';
 import type { SidebarProps } from '.';
 import { cn } from '@/shared/lib/utils';
 import { Sheet, SheetContent } from '@/shared/ui/sheet';
@@ -6,6 +7,8 @@ import SheetDescription from '@/shared/ui/sheet/SheetDescription.vue';
 import SheetHeader from '@/shared/ui/sheet/SheetHeader.vue';
 import SheetTitle from '@/shared/ui/sheet/SheetTitle.vue';
 import { SIDEBAR_WIDTH_MOBILE, useSidebar } from './utils';
+
+const { t } = useTranslation();
 
 defineOptions({
   inheritAttrs: false,
@@ -42,8 +45,8 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
       }"
     >
       <SheetHeader class="sr-only">
-        <SheetTitle>Sidebar</SheetTitle>
-        <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+        <SheetTitle>{{ t('common.sidebar.title') }}</SheetTitle>
+        <SheetDescription>{{ t('common.sidebar.description') }}</SheetDescription>
       </SheetHeader>
       <div class="flex h-full w-full flex-col">
         <slot />
