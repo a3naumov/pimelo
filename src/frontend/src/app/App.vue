@@ -6,7 +6,7 @@ import AppContent from './layout/AppContent.vue';
 </script>
 
 <template>
-  <SidebarProvider>
+  <SidebarProvider :desktop-collapsible="false">
     <AppSidebar />
     <AppContent>
       <RouterView />

@@ -10,8 +10,11 @@ export const toggleVariants = cva(
       variant: {
         default: 'bg-transparent',
         outline: 'border-input hover:bg-muted border bg-transparent',
+        underline:
+          'rounded-none border-b-2 border-transparent bg-transparent text-muted-foreground hover:bg-transparent aria-pressed:bg-transparent data-[state=on]:bg-transparent data-[state=on]:border-primary data-[state=on]:text-primary data-[state=on]:font-semibold',
       },
       size: {
+        tab: 'h-14 gap-2 px-0 text-xs',
         default:
           'h-8 min-w-8 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
         sm: 'h-7 min-w-7 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*=size-])]:size-3.5',

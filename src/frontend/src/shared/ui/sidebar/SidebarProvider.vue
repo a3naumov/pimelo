@@ -17,11 +17,13 @@ const props = withDefaults(
   defineProps<{
     defaultOpen?: boolean;
     open?: boolean;
+    desktopCollapsible?: boolean;
     class?: HTMLAttributes['class'];
   }>(),
   {
     defaultOpen: !defaultDocument?.cookie.includes(`${SIDEBAR_COOKIE_NAME}=false`),
     open: undefined,
+    desktopCollapsible: true,
   },
 );
 
@@ -32,12 +34,24 @@ const emits = defineEmits<{
 const isMobile = useMediaQuery('(width < 48rem)');
 const openMobile = ref(false);
 
-const open = useVModel(props, 'open', emits, {
+const modelOpen = useVModel(props, 'open', emits, {
   defaultValue: props.defaultOpen ?? false,
   passive: (props.open === undefined) as false,
 }) as Ref<boolean>;
+const open = computed({
+  get: () => !props.desktopCollapsible || modelOpen.value,
+  set: (value: boolean) => {
+    if (props.desktopCollapsible) {
+      modelOpen.value = value;
+    }
+  },
+});
 
 function setOpen(value: boolean) {
+  if (!props.desktopCollapsible) {
+    return;
+  }
+
   open.value = value; // emits('update:open', value)
 
   // This sets the cookie to keep the sidebar state.
@@ -54,6 +68,10 @@ function toggleSidebar() {
 }
 
 useEventListener('keydown', (event: KeyboardEvent) => {
+  if (!isMobile.value && !props.desktopCollapsible) {
+    return;
+  }
+
   if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
     event.preventDefault();
     toggleSidebar();

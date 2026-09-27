@@ -1,5 +1,18 @@
 import { expect, test } from '@playwright/test';
 
+test.describe('AppSidebar desktop navigation', () => {
+  test.use({ viewport: { width: 1440, height: 960 } });
+
+  test('shows the complete sidebar without collapse controls', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('[data-sidebar="trigger"]')).toHaveCount(0);
+    await expect(page.locator('[data-sidebar="rail"]')).toHaveCount(0);
+    await expect(page.locator('.brand-name')).toBeVisible();
+    await expect(page.getByText('Pimelo workspace', { exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
+  });
+});
+
 test.describe('AppSidebar mobile navigation', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

@@ -10,18 +10,21 @@ import {
   BreadcrumbSeparator,
 } from '@/shared/ui/breadcrumb';
 import { Separator } from '@/shared/ui/separator';
-import { SidebarInset, SidebarTrigger } from '@/shared/ui/sidebar';
+import { SidebarInset, SidebarTrigger, useSidebar } from '@/shared/ui/sidebar';
 
 const { t } = useTranslation();
+const { isMobile } = useSidebar();
 
 const route = useRoute();
 </script>
 
 <template>
   <SidebarInset class="min-w-0">
-    <header class="flex h-14 shrink-0 items-center gap-3 px-4 sm:px-6">
-      <SidebarTrigger aria-controls="app-navigation" />
-      <Separator orientation="vertical" class="my-4" />
+    <header class="workspace-header flex h-[76px] shrink-0 items-center gap-3 px-4 sm:px-8">
+      <template v-if="isMobile">
+        <SidebarTrigger aria-controls="app-navigation" />
+        <Separator orientation="vertical" class="my-4" />
+      </template>
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem class="hidden sm:inline-flex">{{
@@ -45,8 +48,17 @@ const route = useRoute();
       </Breadcrumb>
     </header>
     <Separator />
-    <div class="flex flex-1 flex-col p-4 sm:p-6 lg:p-8">
+    <div class="flex flex-1 flex-col p-4 sm:p-8">
       <slot />
     </div>
   </SidebarInset>
 </template>
+
+<style scoped>
+.workspace-header {
+  background: var(--card);
+}
+.workspace-header :deep([data-slot='breadcrumb-list']) {
+  font-size: 12px;
+}
+</style>

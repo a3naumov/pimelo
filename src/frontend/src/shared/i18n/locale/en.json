@@ -36,7 +36,10 @@
     "description": "Product workspace",
     "closeNavigation": "Close navigation",
     "mainNavigation": "Main navigation",
-    "documentTitle": "{title} · Pimelo"
+    "documentTitle": "{title} · Pimelo",
+    "workspaceName": "Pimelo workspace",
+    "workspaceOverview": "Workspace overview",
+    "catalogGuide": "Your product catalog"
   },
   "workspace": {
     "title": "Workspace",
@@ -101,7 +104,12 @@
         "deleteDescription": "{sku} will be removed from the catalog. Its SKU will remain reserved.",
         "permanentDeleteDescription": "{sku} and its category links will be permanently deleted. This cannot be undone. Its SKU will become available for reuse.",
         "restoreDescription": "{sku} will return to the active catalog with its SKU and category links."
-      }
+      },
+      "search": "Search by SKU or ID",
+      "refresh": "Refresh products",
+      "product": "Product",
+      "results": "{shown} of {total} products",
+      "noResults": "No matching products"
     }
   }
 }

@@ -3,6 +3,27 @@ import { expect, test } from '@playwright/test';
 const product = { id: '0195f582-9762-7c2a-9228-4060489e06d8', sku: 'SKU-01', deleted_at: null };
 
 test.describe('Product list states', () => {
+  test('searches SKUs and IDs and recovers from no matching products', async ({ page }) => {
+    const other = { ...product, id: '0195f582-9762-7c2a-9228-4060489e06d9', sku: 'SECOND' };
+    await page.route('**/web/products/', (route) =>
+      route.fulfill({ json: { products: [product, other] } }),
+    );
+    await page.goto('/products');
+    const search = page.getByRole('searchbox', { name: 'Search by SKU or ID' });
+    const table = page.getByRole('table', { name: 'Products' });
+    await expect(search).toBeEnabled();
+    await search.fill(' sku-01 ');
+    await expect(table.getByRole('link', { name: product.sku })).toBeVisible();
+    await expect(table.getByRole('link', { name: other.sku })).toHaveCount(0);
+    await search.fill(other.id);
+    await expect(table.getByRole('link', { name: other.sku })).toBeVisible();
+    await search.fill('missing');
+    await expect(table.getByText('No matching products')).toBeVisible();
+    await expect(page.getByRole('status')).toHaveText('0 of 2 products');
+    await search.clear();
+    await expect(table.getByRole('link')).toHaveCount(2);
+  });
+
   test('shows loading until the response arrives, then renders products', async ({ page }) => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
