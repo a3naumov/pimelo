@@ -21,6 +21,7 @@ async function mountContent(path = '/') {
   const wrapper = mount(() => h(SidebarProvider, () => h(AppContent)), {
     global: { plugins: [router] },
   });
+
   return { wrapper, router };
 }
 

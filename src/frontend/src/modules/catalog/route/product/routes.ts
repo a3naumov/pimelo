@@ -31,13 +31,11 @@ export const productRoutes: RouteRecordRaw[] = [
   },
   {
     path: '/products/:id',
-    name: 'catalog.products.show',
-    component: () => import('../../page/product/ProductPage.vue'),
-    meta: {
-      title: 'Product details',
-      group: 'Catalog',
-      navigationItem: 'catalog.products',
-      parent: { name: 'catalog.products', title: 'Products' },
-    },
+    redirect: (to) => ({
+      name: 'catalog.products.edit',
+      params: { id: to.params.id },
+      query: to.query,
+      hash: to.hash,
+    }),
   },
 ];

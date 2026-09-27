@@ -5,6 +5,7 @@ import pluginPlaywright from 'eslint-plugin-playwright';
 import pluginVitest from '@vitest/eslint-plugin';
 import pluginOxlint from 'eslint-plugin-oxlint';
 import skipFormatting from 'eslint-config-prettier/flat';
+import stylistic from '@stylistic/eslint-plugin';
 
 // To allow more languages other than `ts` in `.vue` files, uncomment the following lines:
 // import { configureVueProject } from '@vue/eslint-config-typescript'
@@ -44,4 +45,19 @@ export default defineConfigWithVueTs(
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 
   skipFormatting,
+
+  {
+    name: 'app/control-flow-style',
+    files: ['**/*.{vue,ts,mts,tsx}'],
+    plugins: { '@stylistic': stylistic },
+    rules: {
+      curly: ['error', 'all'],
+      '@stylistic/padding-line-between-statements': [
+        'error',
+        { blankLine: 'always', prev: '*', next: 'block-like' },
+        { blankLine: 'always', prev: 'block-like', next: '*' },
+        { blankLine: 'always', prev: '*', next: ['return', 'throw'] },
+      ],
+    },
+  },
 );

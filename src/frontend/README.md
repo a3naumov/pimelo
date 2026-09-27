@@ -10,29 +10,50 @@ cp src/frontend/.env.example src/frontend/.env
 
 The `.env` file is ignored by Git; `.env.example` provides the shared defaults.
 
-The browser sends JSON requests to `/web` on the frontend origin. Axios uses a
-15-second timeout; TanStack Query supplies cancellation signals for reads.
-Vite proxies `/web` in development and preview to the `BACKEND_URL` origin.
-The default Docker configuration reaches the backend through its published host port:
+The browser sends requests directly to Caddy, which forwards `/web` to the backend.
+Vite only serves the frontend; neither development nor preview proxies API requests.
+Axios uses a 15-second timeout; TanStack Query supplies cancellation signals for reads.
 
 ```dotenv
-# src/frontend/.env, read directly by Vite.
-BACKEND_URL=http://host.docker.internal:8080
+# src/frontend/.env
+VITE_BACKEND_URL=http://localhost
 ```
 
-Set the port to match `SERVICE_BACKEND_PORT`. Restart Vite after changing this value:
+Use Caddy's browser-accessible HTTP(S) origin, including `SERVICE_CADDY_PORT` if it
+is not the default port. Do not include `/web`, credentials, a query, or a fragment:
+the shared client appends `/web`. Missing or invalid values cause a configuration
+error when the client initializes. Docker service names and container-only host
+addresses are not appropriate for this browser setting.
+
+Start Caddy, backend, and frontend with their Compose profiles, then start Vite:
 
 ```sh
+docker compose --profile caddy --profile backend --profile frontend up -d
 docker compose exec frontend npm run dev -- --host 0.0.0.0
 ```
 
-When running Vite directly on the host, set `BACKEND_URL=http://localhost:8080`
-in `src/frontend/.env.local` to override the Docker default. Compose does not
-forward this variable from the repository root `.env`. Use an HTTP(S) origin
-without credentials, a path, query, or fragment.
-Do not prefix this variable with `VITE_`: the target belongs to the development
-server and is not embedded in the browser bundle. A production deployment must
-route `/web` to the backend and provide an `index.html` fallback for frontend URLs.
+Open `http://localhost:5173`. Requests go to `http://localhost/web`, so the backend
+must allow the frontend origin through CORS. `NelmioCorsBundle` handles preflight
+and response headers for `/web` only. In dev and test, the default origins are
+`http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173`, and
+`http://127.0.0.1:4173`. Configure the `CORS_ALLOW_ORIGIN` regular expression in
+the backend environment when changing frontend ports or domains. Anchor it with
+`^` and `$` and escape dots in domain names, for example:
+
+```dotenv
+CORS_ALLOW_ORIGIN='^https://(app|admin)\.example\.com$'
+```
+
+The base backend value `(?!)` matches no origins. Restart backend workers after
+changing the value. Cookie credentials are not enabled. CORS configuration lives
+in `src/backend/config/packages/nelmio_cors.yaml`.
+
+`VITE_BACKEND_URL` is public and embedded in the browser bundle at build time.
+Restart Vite after editing the frontend env; rebuild for a different production
+API origin. Production must set its public Caddy origin before building and its
+allowed frontend origins in the backend environment. The base backend environment
+allows no cross-origin clients. Caddy still needs an `index.html` fallback when
+serving the production frontend.
 
 ## Run all checks
 
@@ -55,9 +76,18 @@ port free inside the container before running checks. The HTML report is written
 to `playwright-report` without opening a browser; failure artifacts are written to
 `test-results`. These generated files are ignored by Git.
 
-For automatic code fixes, use `npm run lint` or `npm run format` separately.
+Run `npm run format` to apply Oxlint/ESLint fixes followed by Prettier. ESLint
+requires braces for control-flow bodies and blank lines around block statements
+(including `if`, loops, `switch`, and `try`), and before
+`return` and `throw` when preceded by another statement. `else`, `catch`, and
+`finally` remain attached to their parent blocks. Prettier preserves these blank
+lines and handles indentation, semicolons, and quotes.
+
+Use `npm run lint` for lint fixes only, or `npm run format:prettier` for Prettier
+only. `npm run check` verifies both conventions without modifying files.
 
 Tests are colocated with the source they cover. Vitest covers API contracts,
 validation, query cancellation, and cache consistency. Playwright intercepts API
 requests to exercise CRUD and error states without a running backend or changing
-development data.
+development data. CI supplies `VITE_BACKEND_URL=http://api.pimelo.test` explicitly;
+local checks use your frontend `.env`. API requests remain intercepted in both cases.

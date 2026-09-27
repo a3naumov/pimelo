@@ -16,16 +16,20 @@ export function getApiError(error: unknown): ApiError {
   if (error instanceof z.ZodError) {
     return { message: 'The server returned an invalid response. Please try again.', fields: {} };
   }
+
   if (!axios.isAxiosError(error)) {
     return { message: 'Something went wrong. Please try again.', fields: {} };
   }
+
   const status = error.response?.status;
+
   if (!status) {
     return {
       message: 'Could not reach the server. Check your connection and try again.',
       fields: {},
     };
   }
+
   const parsed = errorResponseSchema.safeParse(error.response?.data);
   const fields = Object.fromEntries(
     (parsed.success ? (parsed.data.violations ?? []) : []).map(({ propertyPath, title }) => [
@@ -34,10 +38,16 @@ export function getApiError(error: unknown): ApiError {
     ]),
   );
   let message = 'The request could not be completed. Please try again.';
-  if (status >= 500) message = 'The server could not complete the request. Please try again.';
-  else if (status === 404) message = 'This resource was not found. It may have been deleted.';
-  else if (status === 422) message = 'Please check the highlighted fields.';
-  else if (parsed.success && parsed.data.error) message = parsed.data.error;
+
+  if (status >= 500) {
+    message = 'The server could not complete the request. Please try again.';
+  } else if (status === 404) {
+    message = 'This resource was not found. It may have been deleted.';
+  } else if (status === 422) {
+    message = 'Please check the highlighted fields.';
+  } else if (parsed.success && parsed.data.error) {
+    message = parsed.data.error;
+  }
 
   return { status, message, fields };
 }

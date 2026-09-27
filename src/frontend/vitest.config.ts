@@ -2,8 +2,8 @@ import { fileURLToPath } from 'node:url';
 import { mergeConfig, defineConfig, configDefaults } from 'vitest/config';
 import viteConfig from './vite.config.ts';
 
-export default defineConfig((env) =>
-  mergeConfig(viteConfig(env), {
+export default defineConfig(
+  mergeConfig(viteConfig, {
     test: {
       environment: 'jsdom',
       include: ['src/**/*.spec.ts'],

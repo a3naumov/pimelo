@@ -15,7 +15,8 @@
     "lint:check": "oxlint . && eslint .",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "prettier --write .",
+    "format": "run-s lint format:prettier",
+    "format:prettier": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "CI=true PLAYWRIGHT_HTML_OPEN=never run-s format:check lint:check build \"test:unit -- --run\" test:e2e"
   },
@@ -40,6 +41,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tsconfig/node24": "^24.0.5",
     "@types/jsdom": "^30.0.0",
