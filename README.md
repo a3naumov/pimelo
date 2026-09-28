@@ -75,3 +75,10 @@ separation does not restrict access through those host ports.
 Changing these files does not reconnect already running containers. Run `up -d`
 for the desired profiles to apply the new network configuration. Existing named
 volumes and their data are preserved; do not use `down -v` during this change.
+
+## License
+
+Copyright 2026 Artem Naumov.
+
+Pimelo is licensed under the [Apache License, Version 2.0](LICENSE).
+Third-party dependencies remain under their respective licenses.
