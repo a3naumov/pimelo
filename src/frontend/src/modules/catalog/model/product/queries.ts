@@ -10,6 +10,7 @@ import {
   updateProduct,
 } from '../../api/product/products';
 import type { Product, ProductInput, ProductStatus } from './schemas';
+import { categoryKeys } from '../category/keys';
 
 export const productKeys = {
   lists: () => ['catalog', 'products', 'list'] as const,
@@ -17,9 +18,13 @@ export const productKeys = {
   detail: (id: string) => ['catalog', 'products', 'detail', id] as const,
 };
 
-export function useProducts(status: MaybeRefOrGetter<ProductStatus> = 'active') {
+export function useProducts(
+  status: MaybeRefOrGetter<ProductStatus> = 'active',
+  enabled: MaybeRefOrGetter<boolean> = true,
+) {
   return useQuery({
     queryKey: computed(() => productKeys.list(toValue(status))),
+    enabled,
     queryFn: ({ signal }) => getProducts(toValue(status), signal),
   });
 }
@@ -37,7 +42,11 @@ export function useProductMutations() {
   async function saved(product: Product) {
     await client.cancelQueries({ queryKey: productKeys.detail(product.id) });
     client.setQueryData(productKeys.detail(product.id), product);
-    await client.invalidateQueries({ queryKey: productKeys.lists() });
+    await client.cancelQueries({ queryKey: categoryKeys.productLists });
+    await Promise.all([
+      client.invalidateQueries({ queryKey: productKeys.lists() }),
+      client.invalidateQueries({ queryKey: categoryKeys.productLists }),
+    ]);
   }
 
   const create = useMutation({ mutationFn: createProduct, onSuccess: saved });
@@ -52,7 +61,11 @@ export function useProductMutations() {
   async function removed(id: string) {
     await client.cancelQueries({ queryKey: productKeys.detail(id) });
     client.removeQueries({ queryKey: productKeys.detail(id) });
-    await client.invalidateQueries({ queryKey: productKeys.lists() });
+    await client.cancelQueries({ queryKey: categoryKeys.productLists });
+    await Promise.all([
+      client.invalidateQueries({ queryKey: productKeys.lists() }),
+      client.invalidateQueries({ queryKey: categoryKeys.productLists }),
+    ]);
   }
 
   const remove = useMutation({
