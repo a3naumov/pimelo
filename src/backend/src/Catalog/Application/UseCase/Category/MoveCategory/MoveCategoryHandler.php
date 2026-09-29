@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\UseCase\Category\MoveCategory;
 
-use App\Catalog\Domain\Entity\Category;
+use App\Catalog\Application\ReadModel\Projector\CategoryProjector;
+use App\Catalog\Application\ReadModel\View\CategoryView;
 use App\Catalog\Domain\Exception\Category\CategoryNotFoundException;
 use App\Catalog\Domain\Exception\Category\InvalidCategoryHierarchyException;
 use App\Catalog\Domain\Hierarchy\CategoryHierarchyTransactionInterface;
@@ -17,6 +18,7 @@ final readonly class MoveCategoryHandler
         private CategoryRepositoryInterface $categories,
         private CategoryMover $mover,
         private CategoryHierarchyTransactionInterface $transaction,
+        private CategoryProjector $projector,
     ) {
     }
 
@@ -24,9 +26,9 @@ final readonly class MoveCategoryHandler
      * @throws CategoryNotFoundException
      * @throws InvalidCategoryHierarchyException
      */
-    public function __invoke(MoveCategoryCommand $command): Category
+    public function __invoke(MoveCategoryCommand $command): CategoryView
     {
-        return $this->transaction->run(function () use ($command): Category {
+        return $this->transaction->run(function () use ($command): CategoryView {
             $category = $this->categories->findById($command->categoryId);
 
             if (null === $category) {
@@ -39,7 +41,7 @@ final readonly class MoveCategoryHandler
                 throw new CategoryNotFoundException('Parent category not found.');
             }
 
-            return $this->categories->save($this->mover->move($category, $parent));
+            return $this->projector->one($this->categories->save($this->mover->move($category, $parent)));
         });
     }
 }

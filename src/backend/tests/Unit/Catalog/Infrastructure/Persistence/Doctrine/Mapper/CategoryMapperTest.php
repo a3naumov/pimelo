@@ -78,5 +78,6 @@ final class CategoryMapperTest extends TestCase
 
         self::assertSame($existing, $mapped);
         self::assertSame($deletedAt, $mapped->deletedAt);
+        self::assertSame($deletedAt, new CategoryMapper()->fromDoctrine($existing)->deletedAt);
     }
 }

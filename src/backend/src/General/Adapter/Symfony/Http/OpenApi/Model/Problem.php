@@ -9,7 +9,9 @@ use OpenApi\Attributes as OA;
 #[OA\Schema(description: 'Symfony error response; debug environments may include additional diagnostic fields.')]
 final readonly class Problem
 {
-    /** @param list<Violation> $violations */
+    /**
+     * @param list<Violation> $violations
+     */
     public function __construct(
         #[OA\Property(format: 'uri')]
         public string $type,

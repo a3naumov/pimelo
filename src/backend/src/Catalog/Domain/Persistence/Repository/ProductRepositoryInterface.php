@@ -6,22 +6,32 @@ namespace App\Catalog\Domain\Persistence\Repository;
 
 use App\Catalog\Domain\Entity\Product;
 use App\Catalog\Domain\Exception\Product\ProductNotDeletedException;
+use App\Catalog\Domain\Exception\Product\ProductSkuAlreadyExistsException;
 use App\General\Identity\Id;
 
 interface ProductRepositoryInterface
 {
-    /** @return iterable<Product> */
+    /**
+     * @return iterable<Product>
+     */
     public function findAll(bool $deleted = false): iterable;
 
     public function findById(Id $id, bool $includeDeleted = false): ?Product;
 
+    /**
+     * @throws ProductSkuAlreadyExistsException
+     */
     public function save(Product $product): Product;
 
     public function delete(Product $product): void;
 
-    /** @throws ProductNotDeletedException */
+    /**
+     * @throws ProductNotDeletedException
+     */
     public function restore(Id $id): ?Product;
 
-    /** @throws ProductNotDeletedException */
+    /**
+     * @throws ProductNotDeletedException
+     */
     public function deletePermanently(Id $id): bool;
 }

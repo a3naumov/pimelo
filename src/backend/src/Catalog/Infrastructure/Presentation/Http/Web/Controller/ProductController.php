@@ -4,19 +4,29 @@ declare(strict_types=1);
 
 namespace App\Catalog\Infrastructure\Presentation\Http\Web\Controller;
 
-use App\Catalog\Domain\Entity\Product;
-use App\Catalog\Domain\Exception\Product\ProductNotDeletedException;
-use App\Catalog\Domain\Persistence\Repository\ProductRepositoryInterface;
+use App\Catalog\Application\UseCase\Product\CreateProduct\CreateProductCommand;
+use App\Catalog\Application\UseCase\Product\CreateProduct\CreateProductHandler;
+use App\Catalog\Application\UseCase\Product\DeleteProduct\DeleteProductCommand;
+use App\Catalog\Application\UseCase\Product\DeleteProduct\DeleteProductHandler;
+use App\Catalog\Application\UseCase\Product\DeleteProductPermanently\DeleteProductPermanentlyCommand;
+use App\Catalog\Application\UseCase\Product\DeleteProductPermanently\DeleteProductPermanentlyHandler;
+use App\Catalog\Application\UseCase\Product\GetProduct\GetProductHandler;
+use App\Catalog\Application\UseCase\Product\GetProduct\GetProductQuery;
+use App\Catalog\Application\UseCase\Product\ListProducts\ListProductsHandler;
+use App\Catalog\Application\UseCase\Product\ListProducts\ListProductsQuery;
+use App\Catalog\Application\UseCase\Product\RestoreProduct\RestoreProductCommand;
+use App\Catalog\Application\UseCase\Product\RestoreProduct\RestoreProductHandler;
+use App\Catalog\Application\UseCase\Product\UpdateProduct\UpdateProductCommand;
+use App\Catalog\Application\UseCase\Product\UpdateProduct\UpdateProductHandler;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Presenter\ProductPresenter;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Product\CreateProductRequest;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Product\UpdateProductRequest;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\Product as ProductResource;
+use App\General\Adapter\Symfony\Http\Error\ErrorResponder;
 use App\General\Adapter\Symfony\Http\OpenApi\ErrorResponse;
 use App\General\Identity\Id;
-use App\General\Identity\IdGeneratorInterface;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Nelmio\ApiDocBundle\Attribute\Model;
 use OpenApi\Attributes as OA;
-use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -30,50 +40,34 @@ use Symfony\Component\Routing\Requirement\Requirement;
 final class ProductController extends AbstractController
 {
     public function __construct(
-        private readonly ProductRepositoryInterface $productRepository,
-        private readonly IdGeneratorInterface $idGenerator,
-        private readonly LoggerInterface $logger,
+        private readonly ProductPresenter $presenter,
+        private readonly ErrorResponder $errors,
     ) {
     }
 
-    /** @throws \Symfony\Component\HttpFoundation\Exception\BadRequestException */
     #[Route(path: '/', name: 'list', methods: ['GET', 'HEAD'])]
     #[OA\Get(summary: 'List products', responses: [
-        new ErrorResponse(response: 400),
         new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['products'], properties: [new OA\Property(property: 'products', type: 'array', items: new OA\Items(ref: new Model(type: ProductResource::class)))])),
         new ErrorResponse(response: 500),
     ])]
     #[OA\Head(summary: 'List products (headers only)', responses: [
         new OA\Response(response: 200, description: 'Same status as GET; no response body.'),
-        new OA\Response(response: 400, description: 'Invalid query parameters; no response body.'),
         new OA\Response(response: 500, description: 'Unexpected failure; no response body.'),
     ])]
-    #[OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['active', 'deleted'], default: 'active'))]
-    public function list(Request $request): JsonResponse
+    #[OA\Parameter(name: 'status', in: 'query', description: 'Only deleted selects deleted products; any other value selects active products.', schema: new OA\Schema(type: 'string', default: 'active'))]
+    public function list(Request $request, ListProductsHandler $listProducts): JsonResponse
     {
-        $status = $request->query->all()['status'] ?? 'active';
-
-        if (!in_array($status, ['active', 'deleted'], true)) {
-            return $this->json(['error' => 'Status must be active or deleted.'], Response::HTTP_BAD_REQUEST);
-        }
-
         try {
-            $products = [];
+            $deleted = 'deleted' === ($request->query->all()['status'] ?? null);
 
-            foreach ($this->productRepository->findAll(deleted: 'deleted' === $status) as $product) {
-                $products[] = new ProductResource(id: $product->id->toString(), sku: $product->sku, deletedAt: $product->deletedAt);
-            }
-
-            return $this->json(['products' => $products]);
+            return $this->json(['products' => $this->presenter->many($listProducts(new ListProductsQuery($deleted)))]);
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
     }
 
-    /** @throws \Symfony\Component\HttpFoundation\Exception\BadRequestException */
     #[Route(path: '/{id}', name: 'show', requirements: ['id' => '(?i:'.Requirement::UUID.')'], methods: ['GET', 'HEAD'])]
     #[OA\Get(summary: 'Get a product', responses: [
-        new ErrorResponse(response: 400),
         new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['product'], properties: [new OA\Property(property: 'product', ref: new Model(type: ProductResource::class))])),
         new ErrorResponse(response: 404),
         new ErrorResponse(response: 500),
@@ -81,31 +75,20 @@ final class ProductController extends AbstractController
     #[OA\Head(summary: 'Get a product (headers only)', responses: [
         new OA\Response(response: 200, description: 'Same status as GET; no response body.'),
         new OA\Response(response: 404, description: 'Resource not found; no response body.'),
-        new OA\Response(response: 400, description: 'Invalid query parameters; no response body.'),
         new OA\Response(response: 500, description: 'Unexpected failure; no response body.'),
     ])]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
-    #[OA\Parameter(name: 'include_deleted', in: 'query', schema: new OA\Schema(type: 'integer', enum: [0, 1], default: 0))]
-    public function show(string $id, Request $request): JsonResponse
+    #[OA\Parameter(name: 'include_deleted', in: 'query', description: 'Only 1 includes deleted products; any other value behaves like 0.', schema: new OA\Schema(type: 'string', default: '0'))]
+    public function show(string $id, Request $request, GetProductHandler $getProduct): JsonResponse
     {
-        $includeDeleted = $request->query->all()['include_deleted'] ?? '0';
-
-        if (!in_array($includeDeleted, ['0', '1'], true)) {
-            return $this->json(['error' => 'Include deleted must be 0 or 1.'], Response::HTTP_BAD_REQUEST);
-        }
-
         try {
-            $product = $this->productRepository->findById(Id::fromString($id), includeDeleted: '1' === $includeDeleted);
-
-            if (null === $product) {
-                return $this->json(['error' => 'Product not found.'], Response::HTTP_NOT_FOUND);
-            }
+            $includeDeleted = '1' === ($request->query->all()['include_deleted'] ?? null);
 
             return $this->json([
-                'product' => new ProductResource(id: $product->id->toString(), sku: $product->sku, deletedAt: $product->deletedAt),
+                'product' => $this->presenter->one($getProduct(new GetProductQuery(Id::fromString($id), $includeDeleted))),
             ]);
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
     }
 
@@ -118,18 +101,14 @@ final class ProductController extends AbstractController
         new ErrorResponse(response: 422),
         new ErrorResponse(response: 500),
     ])]
-    public function create(#[MapRequestPayload(acceptFormat: 'json')] CreateProductRequest $request): JsonResponse
+    public function create(#[MapRequestPayload(acceptFormat: 'json')] CreateProductRequest $request, CreateProductHandler $createProduct): JsonResponse
     {
         try {
-            $product = $this->productRepository->save(new Product(id: $this->idGenerator->generate(), sku: $request->sku));
-
             return $this->json([
-                'product' => new ProductResource(id: $product->id->toString(), sku: $product->sku, deletedAt: $product->deletedAt),
+                'product' => $this->presenter->one($createProduct(new CreateProductCommand($request->sku))),
             ], Response::HTTP_CREATED);
-        } catch (UniqueConstraintViolationException) {
-            return $this->json(['error' => 'A product with this SKU already exists.'], Response::HTTP_CONFLICT);
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
     }
 
@@ -144,24 +123,14 @@ final class ProductController extends AbstractController
         new ErrorResponse(response: 500),
     ])]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
-    public function update(string $id, #[MapRequestPayload(acceptFormat: 'json')] UpdateProductRequest $request): JsonResponse
+    public function update(string $id, #[MapRequestPayload(acceptFormat: 'json')] UpdateProductRequest $request, UpdateProductHandler $updateProduct): JsonResponse
     {
         try {
-            $existing = $this->productRepository->findById(Id::fromString($id));
-
-            if (null === $existing) {
-                return $this->json(['error' => 'Product not found.'], Response::HTTP_NOT_FOUND);
-            }
-
-            $product = $this->productRepository->save(new Product(id: $existing->id, sku: $request->sku));
-
             return $this->json([
-                'product' => new ProductResource(id: $product->id->toString(), sku: $product->sku, deletedAt: $product->deletedAt),
+                'product' => $this->presenter->one($updateProduct(new UpdateProductCommand(Id::fromString($id), $request->sku))),
             ]);
-        } catch (UniqueConstraintViolationException) {
-            return $this->json(['error' => 'A product with this SKU already exists.'], Response::HTTP_CONFLICT);
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
     }
 
@@ -172,20 +141,14 @@ final class ProductController extends AbstractController
         new ErrorResponse(response: 500),
     ])]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
-    public function delete(string $id): Response
+    public function delete(string $id, DeleteProductHandler $deleteProduct): Response
     {
         try {
-            $product = $this->productRepository->findById(Id::fromString($id));
-
-            if (null === $product) {
-                return $this->json(['error' => 'Product not found.'], Response::HTTP_NOT_FOUND);
-            }
-
-            $this->productRepository->delete($product);
+            $deleteProduct(new DeleteProductCommand(Id::fromString($id)));
 
             return new Response(status: Response::HTTP_NO_CONTENT);
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
     }
 
@@ -197,20 +160,12 @@ final class ProductController extends AbstractController
         new ErrorResponse(response: 500),
     ])]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
-    public function restore(string $id): JsonResponse
+    public function restore(string $id, RestoreProductHandler $restoreProduct): JsonResponse
     {
         try {
-            $product = $this->productRepository->restore(Id::fromString($id));
-
-            if (null === $product) {
-                return $this->json(['error' => 'Product not found.'], Response::HTTP_NOT_FOUND);
-            }
-
-            return $this->json(['product' => new ProductResource(id: $product->id->toString(), sku: $product->sku, deletedAt: $product->deletedAt)]);
-        } catch (ProductNotDeletedException $exception) {
-            return $this->json(['error' => $exception->getMessage()], Response::HTTP_CONFLICT);
+            return $this->json(['product' => $this->presenter->one($restoreProduct(new RestoreProductCommand(Id::fromString($id))))]);
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
     }
 
@@ -222,29 +177,14 @@ final class ProductController extends AbstractController
         new ErrorResponse(response: 500),
     ])]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
-    public function deletePermanently(string $id): Response
+    public function deletePermanently(string $id, DeleteProductPermanentlyHandler $deleteProductPermanently): Response
     {
         try {
-            if (!$this->productRepository->deletePermanently(Id::fromString($id))) {
-                return $this->json(['error' => 'Product not found.'], Response::HTTP_NOT_FOUND);
-            }
+            $deleteProductPermanently(new DeleteProductPermanentlyCommand(Id::fromString($id)));
 
             return new Response(status: Response::HTTP_NO_CONTENT);
-        } catch (ProductNotDeletedException $exception) {
-            return $this->json(['error' => $exception->getMessage()], Response::HTTP_CONFLICT);
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
-    }
-
-    private function serverError(\Throwable $exception): JsonResponse
-    {
-        $this->logger->error('Unexpected catalog request failure.', ['exception' => $exception]);
-
-        // @phpstan-ignore missingType.checkedException (The fixed HTTP 500 status is valid.)
-        return new JsonResponse(
-            data: ['error' => 'Internal server error.'],
-            status: Response::HTTP_INTERNAL_SERVER_ERROR,
-        );
     }
 }

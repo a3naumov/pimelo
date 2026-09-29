@@ -33,6 +33,10 @@ return new PhpCsFixer\Config()
         'braces_position' => [
             'functions_opening_brace' => 'next_line_unless_newline_at_signature_end',
         ],
+        'phpdoc_line_span' => [
+            'method' => 'multi',
+            'other' => 'multi',
+        ],
     ])
     ->setFinder($finder)
 ;

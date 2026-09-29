@@ -6,7 +6,9 @@ namespace App\General\Adapter\Symfony\Http\OpenApi\Model;
 
 use OpenApi\Attributes as OA;
 
-/** Describes the error envelope returned by HTTP controllers. */
+/**
+ * Describes the error envelope returned by HTTP controllers.
+ */
 final readonly class Error
 {
     public function __construct(

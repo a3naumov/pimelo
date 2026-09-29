@@ -9,8 +9,15 @@ use App\Catalog\Domain\Entity\Product;
 
 interface ProductCategoryRepositoryInterface
 {
-    /** @return iterable<Category> */
+    /**
+     * @return iterable<Category>
+     */
     public function findCategories(Product $product): iterable;
+
+    /**
+     * @return list<Product>
+     */
+    public function findProducts(Category $category): array;
 
     public function attach(Product $product, Category $category): void;
 

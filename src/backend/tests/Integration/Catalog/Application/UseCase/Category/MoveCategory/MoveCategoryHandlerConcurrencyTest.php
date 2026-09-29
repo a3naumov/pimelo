@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Catalog\Application\UseCase\Category\MoveCategory;
 
+use App\Catalog\Application\ReadModel\Projector\CategoryProjector;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryCommand;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryHandler;
 use App\Catalog\Domain\Entity\Category;
@@ -76,7 +77,7 @@ final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
             $registry->method('getManagerForClass')->willReturn($manager);
             $transaction = new DoctrineCategoryHierarchyTransaction($connection);
             $repository = new CategoryRepository($registry, new CategoryMapper(), $transaction);
-            $handler = new MoveCategoryHandler($repository, new CategoryMover(new DoctrineCategoryAncestry($connection)), $transaction);
+            $handler = new MoveCategoryHandler($repository, new CategoryMover(new DoctrineCategoryAncestry($connection)), $transaction, new CategoryProjector($repository));
             $generator = new UuidGenerator();
             $first = $repository->save(new Category($generator->generate()));
             $second = $repository->save(new Category($generator->generate()));

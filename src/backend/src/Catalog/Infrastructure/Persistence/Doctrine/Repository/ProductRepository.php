@@ -6,12 +6,14 @@ namespace App\Catalog\Infrastructure\Persistence\Doctrine\Repository;
 
 use App\Catalog\Domain\Entity\Product;
 use App\Catalog\Domain\Exception\Product\ProductNotDeletedException;
+use App\Catalog\Domain\Exception\Product\ProductSkuAlreadyExistsException;
 use App\Catalog\Domain\Persistence\Repository\ProductRepositoryInterface;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\Product as DoctrineProduct;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\ProductCategory;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Mapper\ProductMapper;
 use App\General\Identity\Id;
 use Doctrine\DBAL\Exception as DbalException;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\Query;
@@ -45,7 +47,9 @@ final class ProductRepository implements ProductRepositoryInterface
         }
 
         try {
-            /** @var list<DoctrineProduct> $products */
+            /**
+             * @var list<DoctrineProduct> $products
+             */
             $products = $entityManager->createQueryBuilder()
                 ->select('product')
                 ->from(DoctrineProduct::class, 'product')
@@ -80,6 +84,7 @@ final class ProductRepository implements ProductRepositoryInterface
      * @throws DbalException
      * @throws ORMException
      * @throws \LogicException
+     * @throws ProductSkuAlreadyExistsException
      */
     public function save(Product $product): Product
     {
@@ -95,8 +100,12 @@ final class ProductRepository implements ProductRepositoryInterface
             $existing,
         );
 
-        $entityManager->persist($doctrineProduct);
-        $entityManager->flush();
+        try {
+            $entityManager->persist($doctrineProduct);
+            $entityManager->flush();
+        } catch (UniqueConstraintViolationException $exception) {
+            throw new ProductSkuAlreadyExistsException('A product with this SKU already exists.', previous: $exception);
+        }
 
         return $this->productMapper->fromDoctrine($doctrineProduct);
     }
@@ -218,7 +227,9 @@ final class ProductRepository implements ProductRepositoryInterface
         }
     }
 
-    /** @throws \LogicException */
+    /**
+     * @throws \LogicException
+     */
     private function getEntityManager(): EntityManagerInterface
     {
         $entityManager = $this->registry->getManagerForClass(DoctrineProduct::class);

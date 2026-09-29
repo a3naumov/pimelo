@@ -168,8 +168,6 @@ final class CorsTest extends WebTestCase
 
     public static function apiErrors(): iterable
     {
-        yield 'invalid filter' => ['GET', '/web/products/?status=invalid', Response::HTTP_BAD_REQUEST, null];
-
         yield 'missing product' => ['GET', '/web/products/01994731-0123-7000-8000-000000000000', Response::HTTP_NOT_FOUND, null];
 
         yield 'invalid payload' => ['POST', '/web/products/', Response::HTTP_UNPROCESSABLE_ENTITY, '{"sku":""}'];

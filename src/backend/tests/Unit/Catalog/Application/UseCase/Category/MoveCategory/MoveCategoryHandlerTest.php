@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Catalog\Application\UseCase\Category\MoveCategory;
 
+use App\Catalog\Application\ReadModel\Projector\CategoryProjector;
+use App\Catalog\Application\ReadModel\View\CategoryView;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryCommand;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryHandler;
 use App\Catalog\Domain\Entity\Category;
@@ -25,6 +27,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(MoveCategoryCommand::class)]
 #[UsesClass(Category::class)]
 #[UsesClass(CategoryMover::class)]
+#[UsesClass(CategoryProjector::class)]
+#[UsesClass(CategoryView::class)]
 #[UsesClass(CategoryAncestryResult::class)]
 #[UsesClass(Id::class)]
 #[UsesClass(CategoryNotFoundException::class)]
@@ -39,6 +43,7 @@ final class MoveCategoryHandlerTest extends TestCase
     protected function setUp(): void
     {
         $this->repository = $this->createMock(CategoryRepositoryInterface::class);
+        $this->repository->method('findParentIdsWithChildren')->willReturn([]);
         $this->ancestry = $this->createMock(CategoryAncestryInterface::class);
         $transaction = $this->createMock(CategoryHierarchyTransactionInterface::class);
         $transaction->expects(self::once())->method('run')->willReturnCallback(function (callable $operation): mixed {
@@ -50,7 +55,7 @@ final class MoveCategoryHandlerTest extends TestCase
                 $this->inTransaction = false;
             }
         });
-        $this->handler = new MoveCategoryHandler($this->repository, new CategoryMover($this->ancestry), $transaction);
+        $this->handler = new MoveCategoryHandler($this->repository, new CategoryMover($this->ancestry), $transaction, new CategoryProjector($this->repository));
     }
 
     // ========================================================================
@@ -81,7 +86,7 @@ final class MoveCategoryHandlerTest extends TestCase
 
         $moved = ($this->handler)(new MoveCategoryCommand($category->id, $parent->id));
 
-        self::assertEquals($parent->id, $moved->parentId);
+        self::assertSame($parent->id->toString(), $moved->parentId);
         self::assertFalse($this->inTransaction);
     }
 

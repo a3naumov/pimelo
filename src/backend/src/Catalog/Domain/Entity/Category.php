@@ -9,7 +9,9 @@ use App\General\Identity\Id;
 
 final class Category
 {
-    /** @throws InvalidCategoryHierarchyException */
+    /**
+     * @throws InvalidCategoryHierarchyException
+     */
     public function __construct(
         public private(set) Id $id {
             get => $this->id;
@@ -17,15 +19,18 @@ final class Category
         public private(set) ?Id $parentId = null {
             get => $this->parentId;
         },
+        public private(set) ?\DateTimeImmutable $deletedAt = null,
     ) {
         if (null !== $parentId && $id->equals($parentId)) {
             throw new InvalidCategoryHierarchyException('A category cannot be its own parent.');
         }
     }
 
-    /** @throws InvalidCategoryHierarchyException */
+    /**
+     * @throws InvalidCategoryHierarchyException
+     */
     public function moveTo(?Id $parentId): self
     {
-        return new self($this->id, $parentId);
+        return new self($this->id, $parentId, $this->deletedAt);
     }
 }

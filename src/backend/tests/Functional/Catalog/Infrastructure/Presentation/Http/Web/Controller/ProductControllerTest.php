@@ -556,17 +556,26 @@ final class ProductControllerTest extends WebTestCase
     }
 
     #[DataProvider('invalidListFilters')]
-    public function testInvalidListFiltersReturnBadRequest(string $query): void
+    public function testUnknownListFiltersShowActiveProducts(string $query): void
     {
+        $active = $this->createProduct('active');
+        $deleted = $this->createProduct('deleted');
+        $this->repository->delete($deleted);
+
         $this->client->request('GET', '/web/products/?'.$query);
-        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$active->id->toString()], array_column($this->responseData()['products'], 'id'));
     }
 
-    public function testInvalidDetailFilterReturnsBadRequest(): void
+    public function testUnknownDetailFilterKeepsDeletedProductHidden(): void
     {
-        $product = $this->createProduct('active');
+        $product = $this->createProduct('deleted');
+        $this->repository->delete($product);
+
         $this->client->request('GET', '/web/products/'.$product->id.'?include_deleted[]=1');
-        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
     }
 
     public function testRestoreAndPermanentDeleteLifecycle(): void

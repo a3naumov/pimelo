@@ -14,7 +14,9 @@ final readonly class CategoryMover
     {
     }
 
-    /** @throws InvalidCategoryHierarchyException */
+    /**
+     * @throws InvalidCategoryHierarchyException
+     */
     public function move(Category $category, ?Category $parent): Category
     {
         $moved = $category->moveTo($parent?->id);

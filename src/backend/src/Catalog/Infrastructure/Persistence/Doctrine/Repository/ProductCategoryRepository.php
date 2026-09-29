@@ -12,6 +12,7 @@ use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\Category as DoctrineC
 use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\Product as DoctrineProduct;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\ProductCategory;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Mapper\CategoryMapper;
+use App\Catalog\Infrastructure\Persistence\Doctrine\Mapper\ProductMapper;
 use Doctrine\DBAL\Exception as DbalException;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Exception\ORMException;
@@ -21,7 +22,7 @@ use Symfony\Component\Uid\Uuid;
 
 final class ProductCategoryRepository implements ProductCategoryRepositoryInterface
 {
-    public function __construct(private readonly ManagerRegistry $registry, private readonly CategoryMapper $categoryMapper)
+    public function __construct(private readonly ManagerRegistry $registry, private readonly CategoryMapper $categoryMapper, private readonly ProductMapper $productMapper)
     {
     }
 
@@ -36,7 +37,9 @@ final class ProductCategoryRepository implements ProductCategoryRepositoryInterf
     public function findCategories(Product $product): array
     {
         $entityManager = $this->getEntityManager();
-        /** @var list<DoctrineCategory> $categories */
+        /**
+         * @var list<DoctrineCategory> $categories
+         */
         $categories = $entityManager->createQueryBuilder()
             ->select('category')
             ->from(DoctrineCategory::class, 'category')
@@ -49,6 +52,31 @@ final class ProductCategoryRepository implements ProductCategoryRepositoryInterf
             ->getResult();
 
         return array_map($this->categoryMapper->fromDoctrine(...), $categories);
+    }
+
+    /**
+     * @return list<Product>
+     *
+     * @throws ORMException
+     * @throws \LogicException
+     */
+    public function findProducts(Category $category): array
+    {
+        /**
+         * @var list<DoctrineProduct> $products
+         */
+        $products = $this->getEntityManager()->createQueryBuilder()
+            ->select('product')
+            ->from(DoctrineProduct::class, 'product')
+            ->innerJoin(ProductCategory::class, 'link', 'WITH', 'link.productId = product.id')
+            ->where('link.categoryId = :id')
+            ->setParameter('id', $category->id->toString())
+            ->orderBy('product.id', 'ASC')
+            ->getQuery()
+            ->setHint(Query::HINT_REFRESH, true)
+            ->getResult();
+
+        return array_map($this->productMapper->fromDoctrine(...), $products);
     }
 
     /**
@@ -107,7 +135,9 @@ final class ProductCategoryRepository implements ProductCategoryRepositoryInterf
         $entityManager->flush();
     }
 
-    /** @throws \LogicException */
+    /**
+     * @throws \LogicException
+     */
     private function getEntityManager(): EntityManagerInterface
     {
         $entityManager = $this->registry->getManagerForClass(DoctrineProduct::class);

@@ -14,7 +14,9 @@ final readonly class DoctrineCategoryHierarchyTransaction implements CategoryHie
     {
     }
 
-    /** @throws DbalException */
+    /**
+     * @throws DbalException
+     */
     public function run(callable $operation): mixed
     {
         return $this->connection->transactional(function () use ($operation): mixed {

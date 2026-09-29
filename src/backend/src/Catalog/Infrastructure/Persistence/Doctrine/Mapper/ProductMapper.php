@@ -20,7 +20,9 @@ final readonly class ProductMapper
         );
     }
 
-    /** @throws \InvalidArgumentException */
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function toDoctrine(Product $product, ?DoctrineProduct $doctrineProduct = null): DoctrineProduct
     {
         if (null === $doctrineProduct) {

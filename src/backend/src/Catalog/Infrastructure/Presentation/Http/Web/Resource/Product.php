@@ -19,7 +19,13 @@ final readonly class Product implements \JsonSerializable
     ) {
     }
 
-    /** @return array{id: string, sku: string, deleted_at: ?string} */
+    /**
+     * @return array{
+     *     id: string,
+     *     sku: string,
+     *     deleted_at: ?string,
+     * }
+     */
     public function jsonSerialize(): array
     {
         return [

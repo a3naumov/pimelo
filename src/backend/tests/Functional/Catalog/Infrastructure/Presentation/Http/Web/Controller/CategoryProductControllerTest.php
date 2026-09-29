@@ -23,9 +23,10 @@ use App\Catalog\Infrastructure\Persistence\Doctrine\Repository\ProductCategoryRe
 use App\Catalog\Infrastructure\Persistence\Doctrine\Repository\ProductRepository;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Transaction\DoctrineCategoryHierarchyTransaction;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Controller\CategoryController;
-use App\Catalog\Infrastructure\Presentation\Http\Web\Controller\ProductCategoryController;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Controller\CategoryProductController;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Controller\ProductController;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\Category as CategoryResource;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\Product as ProductResource;
 use App\General\Adapter\Symfony\Identity\UuidGenerator;
 use App\General\Identity\Id;
 use App\General\Identity\IdGeneratorInterface;
@@ -41,7 +42,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
-#[CoversClass(ProductCategoryController::class)]
+#[CoversClass(CategoryProductController::class)]
 #[UsesClass(CategoryController::class)]
 #[UsesClass(ProductController::class)]
 #[UsesClass(DoctrineCategory::class)]
@@ -60,9 +61,10 @@ use Symfony\Component\HttpFoundation\Response;
 #[UsesClass(CategoryMover::class)]
 #[UsesClass(Product::class)]
 #[UsesClass(CategoryResource::class)]
+#[UsesClass(ProductResource::class)]
 #[UsesClass(Id::class)]
 #[UsesClass(UuidGenerator::class)]
-final class ProductCategoryControllerTest extends WebTestCase
+final class CategoryProductControllerTest extends WebTestCase
 {
     private KernelBrowser $client;
     private Product $product;
@@ -87,6 +89,62 @@ final class ProductCategoryControllerTest extends WebTestCase
     }
 
     // ========================================================================
+    // Lists: only direct active products are returned; old routes are removed
+    // ========================================================================
+
+    public function testListsOnlyDirectActiveProducts(): void
+    {
+        $this->link('PUT', $this->product, $this->category);
+        $this->link('PUT', $this->otherProduct, $this->otherCategory);
+        self::getContainer()->get(MoveCategoryHandler::class)(new MoveCategoryCommand($this->otherCategory->id, $this->category->id));
+        $this->client->request('GET', '/web/categories/'.$this->category->id.'/products/');
+        self::assertResponseIsSuccessful();
+        self::assertSame(['products' => [['id' => $this->product->id->toString(), 'sku' => $this->product->sku, 'deleted_at' => null]]], $this->responseData());
+
+        $this->client->request('DELETE', '/web/products/'.$this->product->id);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+        $this->client->request('GET', '/web/categories/'.$this->category->id.'/products/');
+        self::assertSame(['products' => []], $this->responseData());
+        $this->client->request('POST', '/web/products/'.$this->product->id.'/restore');
+        self::assertResponseIsSuccessful();
+        $this->client->request('GET', '/web/categories/'.$this->category->id.'/products/');
+        self::assertCount(1, $this->responseData()['products']);
+
+        foreach (['GET', 'HEAD', 'PUT', 'DELETE'] as $method) {
+            $this->client->request($method, '/web/products/'.$this->product->id.'/categories/'.(in_array($method, ['PUT', 'DELETE'], true) ? $this->category->id : ''));
+            self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        }
+    }
+
+    // ========================================================================
+    // Query parameters: unknown include_deleted values keep active-only reads
+    // ========================================================================
+
+    #[DataProvider('unknownIncludeDeletedValues')]
+    public function testUnknownIncludeDeletedValuesDoNotExposeDeletedProducts(string $query): void
+    {
+        $this->link('PUT', $this->product, $this->category);
+        $this->link('PUT', $this->otherProduct, $this->category);
+        $this->client->request('DELETE', '/web/products/'.$this->otherProduct->id);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+
+        $this->client->request('GET', '/web/categories/'.$this->category->id.'/products/?'.$query);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['products' => [['id' => $this->product->id->toString(), 'sku' => $this->product->sku, 'deleted_at' => null]]],
+            $this->responseData(),
+        );
+
+        $this->client->request('DELETE', '/web/categories/'.$this->category->id);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+
+        $this->client->request('GET', '/web/categories/'.$this->category->id.'/products/?'.$query);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
+
+    // ========================================================================
     // Many-to-many: links are persistent, independent and idempotent
     // ========================================================================
 
@@ -101,7 +159,7 @@ final class ProductCategoryControllerTest extends WebTestCase
         $this->assertCategories($this->product, [$this->category, $this->otherCategory]);
         $this->assertCategories($this->otherProduct, [$this->category]);
 
-        $this->client->request('HEAD', '/web/products/'.$this->product->id.'/categories/');
+        $this->client->request('HEAD', '/web/categories/'.$this->category->id.'/products/');
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
         self::assertSame('', $this->client->getResponse()->getContent());
@@ -134,8 +192,11 @@ final class ProductCategoryControllerTest extends WebTestCase
 
         $moved = self::getContainer()->get(MoveCategoryHandler::class)(new MoveCategoryCommand($this->category->id, $this->otherCategory->id));
 
-        $this->assertCategories($this->product, [$moved]);
-        $this->assertCategories($this->otherProduct, [$moved]);
+        self::assertSame($this->category->id->toString(), $moved->id);
+        self::assertSame($this->otherCategory->id->toString(), $moved->parentId);
+        $movedCategory = new Category($this->category->id, $this->otherCategory->id);
+        $this->assertCategories($this->product, [$movedCategory]);
+        $this->assertCategories($this->otherProduct, [$movedCategory]);
     }
 
     // ========================================================================
@@ -148,7 +209,7 @@ final class ProductCategoryControllerTest extends WebTestCase
         $missingId = '01994731-abcd-7000-8000-000000000000';
         $productId = $missingProduct ? $missingId : $this->product->id->toString();
         $categoryId = $missingProduct ? $this->category->id->toString() : $missingId;
-        $path = '/web/products/'.$productId.'/categories/'.('GET' === $method ? '' : $categoryId);
+        $path = '/web/categories/'.$categoryId.'/products/'.('GET' === $method ? '' : $productId);
 
         $this->client->request($method, $path);
 
@@ -172,7 +233,7 @@ final class ProductCategoryControllerTest extends WebTestCase
         $this->client->request('DELETE', $path);
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
 
-        $path = '/web/products/'.$this->product->id.'/categories/'.('GET' === $method ? '' : $this->category->id);
+        $path = '/web/categories/'.$this->category->id.'/products/'.('GET' === $method ? '' : $this->product->id);
         $this->client->request($method, $path);
 
         self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
@@ -186,7 +247,7 @@ final class ProductCategoryControllerTest extends WebTestCase
 
     public function testUppercaseIdsAreAccepted(): void
     {
-        $this->client->request('PUT', '/web/products/'.strtoupper($this->product->id->toString()).'/categories/'.strtoupper($this->category->id->toString()));
+        $this->client->request('PUT', '/web/categories/'.strtoupper($this->category->id->toString()).'/products/'.strtoupper($this->product->id->toString()));
 
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
         $this->assertCategories($this->product, [$this->category]);
@@ -223,7 +284,7 @@ final class ProductCategoryControllerTest extends WebTestCase
         $handler = new TestHandler(Level::Error, false);
         $logger->pushHandler($handler);
         $this->client->catchExceptions(false);
-        $path = '/web/products/'.$this->product->id.'/categories/'.('GET' === $method ? '' : $this->category->id);
+        $path = '/web/categories/'.$this->category->id.'/products/'.('GET' === $method ? '' : $this->product->id);
 
         $this->client->request($method, $path);
 
@@ -240,22 +301,19 @@ final class ProductCategoryControllerTest extends WebTestCase
 
     private function link(string $method, Product $product, Category $category): void
     {
-        $this->client->request($method, '/web/products/'.$product->id.'/categories/'.$category->id);
+        $this->client->request($method, '/web/categories/'.$category->id.'/products/'.$product->id);
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
         self::assertSame('', $this->client->getResponse()->getContent());
         self::getContainer()->get(EntityManagerInterface::class)->clear();
     }
 
-    /** @param list<Category> $categories */
+    /**
+     * @param list<Category> $categories
+     */
     private function assertCategories(Product $product, array $categories): void
     {
         self::getContainer()->get(EntityManagerInterface::class)->clear();
-        $this->client->request('GET', '/web/products/'.$product->id.'/categories/');
-        self::assertResponseStatusCodeSame(Response::HTTP_OK);
-        self::assertResponseHeaderSame('Content-Type', 'application/json');
-        $data = $this->responseData();
-        self::assertSame(['categories'], array_keys($data));
-        self::assertEqualsCanonicalizing(array_map(static fn (Category $category): array => ['id' => $category->id->toString(), 'parent_id' => $category->parentId?->toString()], $categories), $data['categories']);
+        self::assertEqualsCanonicalizing($categories, self::getContainer()->get(ProductCategoryRepositoryInterface::class)->findCategories($product));
     }
 
     private function responseData(): array
@@ -269,7 +327,7 @@ final class ProductCategoryControllerTest extends WebTestCase
 
     public static function missingResources(): iterable
     {
-        yield 'GET missing product' => ['GET', true];
+        yield 'GET missing category' => ['GET', false];
 
         foreach (['PUT', 'DELETE'] as $method) {
             yield $method.' missing product' => [$method, true];
@@ -280,31 +338,38 @@ final class ProductCategoryControllerTest extends WebTestCase
 
     public static function failingOperations(): iterable
     {
-        yield 'list' => ['GET', 'findCategories'];
+        yield 'list' => ['GET', 'findProducts'];
 
         yield 'attach' => ['PUT', 'attach'];
 
         yield 'detach' => ['DELETE', 'detach'];
     }
 
+    public static function unknownIncludeDeletedValues(): iterable
+    {
+        yield 'unknown scalar' => ['include_deleted=invalid'];
+
+        yield 'array value' => ['include_deleted%5B%5D=1'];
+    }
+
     public static function invalidRequests(): iterable
     {
         foreach (['PUT', 'DELETE'] as $method) {
             foreach (['invalid', '01994731-abcd-7000-0000-000000000000'] as $id) {
-                yield $method.' invalid product '.$id => [$method, '/web/products/'.$id.'/categories/{category}', Response::HTTP_NOT_FOUND, null];
+                yield $method.' invalid product '.$id => [$method, '/web/categories/{category}/products/'.$id, Response::HTTP_NOT_FOUND, null];
 
-                yield $method.' invalid category '.$id => [$method, '/web/products/{product}/categories/'.$id, Response::HTTP_NOT_FOUND, null];
+                yield $method.' invalid category '.$id => [$method, '/web/categories/'.$id.'/products/{product}', Response::HTTP_NOT_FOUND, null];
             }
         }
 
-        yield 'GET invalid product' => ['GET', '/web/products/invalid/categories/', Response::HTTP_NOT_FOUND, null];
+        yield 'GET invalid product' => ['GET', '/web/categories/invalid/products/', Response::HTTP_NOT_FOUND, null];
 
         foreach (['POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as $method) {
-            yield $method.' collection' => [$method, '/web/products/{product}/categories/', Response::HTTP_METHOD_NOT_ALLOWED, 'GET, HEAD'];
+            yield $method.' collection' => [$method, '/web/categories/{category}/products/', Response::HTTP_METHOD_NOT_ALLOWED, 'GET, HEAD'];
         }
 
         foreach (['GET', 'POST', 'PATCH', 'OPTIONS'] as $method) {
-            yield $method.' relation' => [$method, '/web/products/{product}/categories/{category}', Response::HTTP_METHOD_NOT_ALLOWED, 'PUT, DELETE'];
+            yield $method.' relation' => [$method, '/web/categories/{category}/products/{product}', Response::HTTP_METHOD_NOT_ALLOWED, 'PUT, DELETE'];
         }
     }
 }

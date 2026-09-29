@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Catalog\Infrastructure\Persistence\Doctrine\Repository;
 
 use App\Catalog\Domain\Entity\Product;
+use App\Catalog\Domain\Exception\Product\ProductSkuAlreadyExistsException;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\Product as DoctrineProduct;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\ProductCategory;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Mapper\ProductMapper;
@@ -13,7 +14,6 @@ use App\General\Adapter\Symfony\Identity\UuidGenerator;
 use App\General\Identity\Id;
 use App\General\Identity\IdGeneratorInterface;
 use Doctrine\DBAL\Exception\DriverException;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaValidator;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -299,7 +299,7 @@ final class ProductRepositoryTest extends KernelTestCase
         $product = $this->repository->save(new Product($this->idGenerator->generate(), 'reserved'));
         $this->repository->delete($product);
 
-        $this->expectException(UniqueConstraintViolationException::class);
+        $this->expectException(ProductSkuAlreadyExistsException::class);
 
         $this->repository->save(new Product($this->idGenerator->generate(), 'reserved'));
     }
@@ -323,7 +323,7 @@ final class ProductRepositoryTest extends KernelTestCase
     {
         $this->repository->save(new Product(sku: 'duplicate-sku', id: $this->idGenerator->generate()));
 
-        $this->expectException(UniqueConstraintViolationException::class);
+        $this->expectException(ProductSkuAlreadyExistsException::class);
 
         $this->repository->save(new Product(sku: 'duplicate-sku', id: $this->idGenerator->generate()));
     }

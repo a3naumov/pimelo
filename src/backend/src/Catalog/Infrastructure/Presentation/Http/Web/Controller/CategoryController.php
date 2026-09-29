@@ -4,23 +4,38 @@ declare(strict_types=1);
 
 namespace App\Catalog\Infrastructure\Presentation\Http\Web\Controller;
 
+use App\Catalog\Application\UseCase\Category\CreateCategory\CreateCategoryCommand;
+use App\Catalog\Application\UseCase\Category\CreateCategory\CreateCategoryHandler;
+use App\Catalog\Application\UseCase\Category\DeleteCategory\DeleteCategoryCommand;
+use App\Catalog\Application\UseCase\Category\DeleteCategory\DeleteCategoryHandler;
+use App\Catalog\Application\UseCase\Category\DeleteCategoryPermanently\DeleteCategoryPermanentlyCommand;
+use App\Catalog\Application\UseCase\Category\DeleteCategoryPermanently\DeleteCategoryPermanentlyHandler;
+use App\Catalog\Application\UseCase\Category\GetCategory\GetCategoryHandler;
+use App\Catalog\Application\UseCase\Category\GetCategory\GetCategoryQuery;
+use App\Catalog\Application\UseCase\Category\GetCategoryBranch\GetCategoryBranchHandler;
+use App\Catalog\Application\UseCase\Category\GetCategoryBranch\GetCategoryBranchQuery;
+use App\Catalog\Application\UseCase\Category\ListCategories\ListCategoriesHandler;
+use App\Catalog\Application\UseCase\Category\ListCategories\ListCategoriesQuery;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryCommand;
 use App\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryHandler;
-use App\Catalog\Domain\Entity\Category;
-use App\Catalog\Domain\Exception\Category\CategoryNotFoundException;
-use App\Catalog\Domain\Exception\Category\InvalidCategoryHierarchyException;
-use App\Catalog\Domain\Persistence\Repository\CategoryRepositoryInterface;
+use App\Catalog\Application\UseCase\Category\RestoreCategory\RestoreCategoryCommand;
+use App\Catalog\Application\UseCase\Category\RestoreCategory\RestoreCategoryHandler;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Presenter\CategoryPresenter;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\CreateCategoryRequest;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\ListCategoriesRequest;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\MoveCategoryRequest;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\Category as CategoryResource;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\CategoryBranch as CategoryBranchResource;
+use App\General\Adapter\Symfony\Http\Error\ErrorResponder;
 use App\General\Adapter\Symfony\Http\OpenApi\ErrorResponse;
 use App\General\Identity\Id;
-use App\General\Identity\IdGeneratorInterface;
 use Nelmio\ApiDocBundle\Attribute\Model;
 use OpenApi\Attributes as OA;
-use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
@@ -31,34 +46,64 @@ use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 final class CategoryController extends AbstractController
 {
     public function __construct(
-        private readonly CategoryRepositoryInterface $categoryRepository,
-        private readonly IdGeneratorInterface $idGenerator,
-        private readonly MoveCategoryHandler $moveCategoryHandler,
-        private readonly LoggerInterface $logger,
+        private readonly CategoryPresenter $presenter,
+        private readonly ErrorResponder $errors,
     ) {
     }
 
     #[Route(path: '/', name: 'list', methods: ['GET', 'HEAD'])]
-    #[OA\Get(summary: 'List categories and their parent IDs', responses: [
+    #[OA\Get(summary: 'List root categories or immediate children of a parent', responses: [
         new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['categories'], properties: [new OA\Property(property: 'categories', type: 'array', items: new OA\Items(ref: new Model(type: CategoryResource::class)))])),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 422),
         new ErrorResponse(response: 500),
     ])]
-    #[OA\Head(summary: 'List categories and their parent IDs (headers only)', responses: [
+    #[OA\Head(summary: 'List root categories or immediate children (headers only)', responses: [
         new OA\Response(response: 200, description: 'Same status as GET; no response body.'),
+        new OA\Response(response: 404, description: 'Parent category not found; no response body.'),
+        new OA\Response(response: 422, description: 'Invalid parent_id; no response body.'),
         new OA\Response(response: 500, description: 'Unexpected failure; no response body.'),
     ])]
-    public function list(): JsonResponse
+    #[OA\Parameter(name: 'parent_id', in: 'query', description: 'Parent UUID. Omit to list root categories.', schema: new OA\Schema(type: 'string', format: 'uuid'))]
+    #[OA\Parameter(name: 'include_deleted', in: 'query', description: 'Only 1 includes deleted categories; any other value behaves like 0.', schema: new OA\Schema(type: 'string', default: '0'))]
+    public function list(
+        Request $request,
+        ListCategoriesHandler $listCategories,
+        #[MapQueryString(validationFailedStatusCode: Response::HTTP_UNPROCESSABLE_ENTITY)] ?ListCategoriesRequest $filter = null,
+    ): JsonResponse {
+        try {
+            $includeDeleted = '1' === ($request->query->all()['include_deleted'] ?? null);
+            $parentId = null === $filter?->parentId ? null : Id::fromString($filter->parentId);
+
+            return $this->json(['categories' => $this->presenter->many($listCategories(new ListCategoriesQuery($parentId, $includeDeleted)))]);
+        } catch (\Throwable $exception) {
+            return $this->errors->respond($exception);
+        }
+    }
+
+    #[Route(path: '/{id}/branch', name: 'branch', requirements: ['id' => '(?i:'.Requirement::UUID.')'], methods: ['GET', 'HEAD'])]
+    #[OA\Get(summary: 'Get the complete path and sibling levels for a category', responses: [
+        new OA\Response(response: 200, description: 'Complete branch, including root siblings and excluding children of the selected category.', content: new OA\JsonContent(ref: new Model(type: CategoryBranchResource::class))),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 409),
+        new ErrorResponse(response: 500),
+    ])]
+    #[OA\Head(summary: 'Get a category branch (headers only)', responses: [
+        new OA\Response(response: 200, description: 'Same status as GET; no response body.'),
+        new OA\Response(response: 404, description: 'Category not found; no response body.'),
+        new OA\Response(response: 409, description: 'Invalid hierarchy; no response body.'),
+        new OA\Response(response: 500, description: 'Unexpected failure; no response body.'),
+    ])]
+    #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
+    #[OA\Parameter(name: 'include_deleted', in: 'query', description: 'Only 1 includes deleted categories; any other value behaves like 0.', schema: new OA\Schema(type: 'string', default: '0'))]
+    public function branch(string $id, Request $request, GetCategoryBranchHandler $getCategoryBranch): JsonResponse
     {
         try {
-            $categories = [];
+            $includeDeleted = '1' === ($request->query->all()['include_deleted'] ?? null);
 
-            foreach ($this->categoryRepository->findAll() as $category) {
-                $categories[] = new CategoryResource($category->id->toString(), $category->parentId?->toString());
-            }
-
-            return $this->json(['categories' => $categories]);
+            return $this->json($this->presenter->branch($getCategoryBranch(new GetCategoryBranchQuery(Id::fromString($id), $includeDeleted))));
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
     }
 
@@ -74,40 +119,36 @@ final class CategoryController extends AbstractController
         new OA\Response(response: 500, description: 'Unexpected failure; no response body.'),
     ])]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
-    public function show(string $id): JsonResponse
+    #[OA\Parameter(name: 'include_deleted', in: 'query', description: 'Only 1 includes deleted categories; any other value behaves like 0.', schema: new OA\Schema(type: 'string', default: '0'))]
+    public function show(string $id, Request $request, GetCategoryHandler $getCategory): JsonResponse
     {
         try {
-            $category = $this->categoryRepository->findById(Id::fromString($id));
+            $includeDeleted = '1' === ($request->query->all()['include_deleted'] ?? null);
 
-            if (null === $category) {
-                return $this->json(['error' => 'Category not found.'], Response::HTTP_NOT_FOUND);
-            }
-
-            return $this->json(['category' => new CategoryResource($category->id->toString(), $category->parentId?->toString())]);
+            return $this->json(['category' => $this->presenter->one($getCategory(new GetCategoryQuery(Id::fromString($id), $includeDeleted)))]);
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
     }
 
     #[Route(path: '/', name: 'create', methods: ['POST'])]
-    #[OA\Post(summary: 'Create a root category without a request body', responses: [
+    #[OA\Post(summary: 'Create a category with an optional parent; an omitted parent creates a root', responses: [
         new OA\Response(response: 201, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['category'], properties: [new OA\Property(property: 'category', ref: new Model(type: CategoryResource::class))])),
+        new ErrorResponse(response: 400),
         new ErrorResponse(response: 404),
         new ErrorResponse(response: 409, description: 'The requested parent is the category itself or a descendant, or the existing hierarchy contains a cycle.'),
+        new ErrorResponse(response: 415),
+        new ErrorResponse(response: 422),
         new ErrorResponse(response: 500),
     ])]
-    public function create(): JsonResponse
+    public function create(CreateCategoryHandler $createCategory, #[MapRequestPayload(acceptFormat: 'json')] ?CreateCategoryRequest $request = null): JsonResponse
     {
         try {
-            $category = $this->categoryRepository->save(new Category($this->idGenerator->generate()));
+            $parentId = null === $request?->parentId ? null : Id::fromString($request->parentId);
 
-            return $this->json(['category' => new CategoryResource($category->id->toString(), $category->parentId?->toString())], Response::HTTP_CREATED);
-        } catch (CategoryNotFoundException $exception) {
-            return $this->json(['error' => $exception->getMessage()], Response::HTTP_NOT_FOUND);
-        } catch (InvalidCategoryHierarchyException $exception) {
-            return $this->json(['error' => $exception->getMessage()], Response::HTTP_CONFLICT);
+            return $this->json(['category' => $this->presenter->one($createCategory(new CreateCategoryCommand($parentId)))], Response::HTTP_CREATED);
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
     }
 
@@ -129,20 +170,17 @@ final class CategoryController extends AbstractController
             serializationContext: [AbstractNormalizer::REQUIRE_ALL_PROPERTIES => true],
         )]
         MoveCategoryRequest $request,
+        MoveCategoryHandler $moveCategoryHandler,
     ): JsonResponse {
         try {
-            $category = ($this->moveCategoryHandler)(new MoveCategoryCommand(
+            $category = $moveCategoryHandler(new MoveCategoryCommand(
                 Id::fromString($id),
                 null === $request->parentId ? null : Id::fromString($request->parentId),
             ));
 
-            return $this->json(['category' => new CategoryResource($category->id->toString(), $category->parentId?->toString())]);
-        } catch (CategoryNotFoundException $exception) {
-            return $this->json(['error' => $exception->getMessage()], Response::HTTP_NOT_FOUND);
-        } catch (InvalidCategoryHierarchyException $exception) {
-            return $this->json(['error' => $exception->getMessage()], Response::HTTP_CONFLICT);
+            return $this->json(['category' => $this->presenter->one($category)]);
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
     }
 
@@ -153,31 +191,48 @@ final class CategoryController extends AbstractController
         new ErrorResponse(response: 500),
     ])]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
-    public function delete(string $id): Response
+    public function delete(string $id, DeleteCategoryHandler $deleteCategory): Response
     {
         try {
-            $category = $this->categoryRepository->findById(Id::fromString($id));
-
-            if (null === $category) {
-                return $this->json(['error' => 'Category not found.'], Response::HTTP_NOT_FOUND);
-            }
-
-            $this->categoryRepository->delete($category);
+            $deleteCategory(new DeleteCategoryCommand(Id::fromString($id)));
 
             return new Response(status: Response::HTTP_NO_CONTENT);
         } catch (\Throwable $exception) {
-            return $this->serverError($exception);
+            return $this->errors->respond($exception);
         }
     }
 
-    private function serverError(\Throwable $exception): JsonResponse
+    #[Route(path: '/{id}/restore', name: 'restore', requirements: ['id' => '(?i:'.Requirement::UUID.')'], methods: ['POST'])]
+    #[OA\Post(summary: 'Restore a deleted subtree and its ancestor chain, preserving product links', responses: [
+        new OA\Response(response: 200, description: 'Restored category.', content: new OA\JsonContent(type: 'object', required: ['category'], properties: [new OA\Property(property: 'category', ref: new Model(type: CategoryResource::class))])),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 409),
+        new ErrorResponse(response: 500),
+    ])]
+    public function restore(string $id, RestoreCategoryHandler $restoreCategory): Response
     {
-        $this->logger->error('Unexpected catalog request failure.', ['exception' => $exception]);
+        try {
+            return $this->json(['category' => $this->presenter->one($restoreCategory(new RestoreCategoryCommand(Id::fromString($id))))]);
+        } catch (\Throwable $exception) {
+            return $this->errors->respond($exception);
+        }
+    }
 
-        // @phpstan-ignore missingType.checkedException (The fixed HTTP 500 status is valid.)
-        return new JsonResponse(
-            data: ['error' => 'Internal server error.'],
-            status: Response::HTTP_INTERNAL_SERVER_ERROR,
-        );
+    #[Route(path: '/{id}/permanent', name: 'deletePermanently', requirements: ['id' => '(?i:'.Requirement::UUID.')'], methods: ['DELETE'])]
+    #[OA\Delete(summary: 'Permanently delete a deleted subtree and its links, preserving products', responses: [
+        new OA\Response(response: 204, description: 'Deleted; no response body.'),
+        new ErrorResponse(response: 404),
+        new ErrorResponse(response: 409),
+        new ErrorResponse(response: 500),
+    ])]
+    public function deletePermanently(string $id, DeleteCategoryPermanentlyHandler $deleteCategoryPermanently): Response
+    {
+        try {
+            $deleteCategoryPermanently(new DeleteCategoryPermanentlyCommand(Id::fromString($id)));
+
+            return new Response(status: Response::HTTP_NO_CONTENT);
+        } catch (\Throwable $exception) {
+            return $this->errors->respond($exception);
+        }
     }
 }

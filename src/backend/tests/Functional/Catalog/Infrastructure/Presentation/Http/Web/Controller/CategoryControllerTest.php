@@ -10,6 +10,7 @@ use App\Catalog\Domain\Entity\Category;
 use App\Catalog\Domain\Exception\Category\CategoryNotFoundException;
 use App\Catalog\Domain\Exception\Category\InvalidCategoryHierarchyException;
 use App\Catalog\Domain\Hierarchy\CategoryAncestryResult;
+use App\Catalog\Domain\Hierarchy\CategoryBranch;
 use App\Catalog\Domain\Persistence\Repository\CategoryRepositoryInterface;
 use App\Catalog\Domain\Service\Category\CategoryMover;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Entity\Category as DoctrineCategory;
@@ -18,8 +19,11 @@ use App\Catalog\Infrastructure\Persistence\Doctrine\Mapper\CategoryMapper;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Repository\CategoryRepository;
 use App\Catalog\Infrastructure\Persistence\Doctrine\Transaction\DoctrineCategoryHierarchyTransaction;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Controller\CategoryController;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\CreateCategoryRequest;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\ListCategoriesRequest;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\MoveCategoryRequest;
 use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\Category as CategoryResource;
+use App\Catalog\Infrastructure\Presentation\Http\Web\Resource\CategoryBranch as CategoryBranchResource;
 use App\General\Adapter\Symfony\Identity\UuidGenerator;
 use App\General\Identity\Id;
 use Doctrine\ORM\EntityManagerInterface;
@@ -37,6 +41,8 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Uid\UuidV7;
 
 #[CoversClass(CategoryController::class)]
+#[UsesClass(CreateCategoryRequest::class)]
+#[UsesClass(ListCategoriesRequest::class)]
 #[UsesClass(MoveCategoryRequest::class)]
 #[UsesClass(CategoryNotFoundException::class)]
 #[UsesClass(InvalidCategoryHierarchyException::class)]
@@ -51,6 +57,8 @@ use Symfony\Component\Uid\UuidV7;
 #[UsesClass(CategoryAncestryResult::class)]
 #[UsesClass(CategoryMover::class)]
 #[UsesClass(CategoryResource::class)]
+#[UsesClass(CategoryBranchResource::class)]
+#[UsesClass(CategoryBranch::class)]
 #[UsesClass(Id::class)]
 #[UsesClass(UuidGenerator::class)]
 final class CategoryControllerTest extends WebTestCase
@@ -65,7 +73,196 @@ final class CategoryControllerTest extends WebTestCase
     }
 
     // ========================================================================
-    // Lifecycle: creates a root category without a request body
+    // Branch: complete ancestor levels with a constant number of database reads
+    // ========================================================================
+
+    public function testLoadsDeepBranchWithSiblingsInTwoQueries(): void
+    {
+        $root = $this->createCategory();
+        $other = $this->createCategory();
+        $unrelated = $this->createCategory();
+        $this->moveCategory($unrelated, $other);
+        $path = [$root];
+        $siblings = [];
+
+        for ($depth = 0; $depth < 9; ++$depth) {
+            $parent = $path[array_key_last($path)];
+            $child = $this->createCategory();
+            $sibling = $this->createCategory();
+            $this->moveCategory($child, $parent);
+            $this->moveCategory($sibling, $parent);
+            $path[] = $child;
+            $siblings[] = $sibling;
+        }
+
+        $selected = $path[array_key_last($path)];
+        $unloaded = $this->createCategory();
+        $this->moveCategory($unloaded, $selected);
+        $holder = self::getContainer()->get('doctrine.debug_data_holder');
+
+        foreach ([$root, $selected] as $id) {
+            $holder->reset();
+            $this->client->request('GET', '/web/categories/'.$id.'/branch');
+            self::assertResponseIsSuccessful();
+            self::assertSame(2, array_sum(array_map('count', $holder->getData())));
+            $data = $this->responseData();
+            $expectedPath = $id === $root ? [$root] : $path;
+            self::assertSame($expectedPath, array_column($data['path'], 'id'));
+            self::assertCount(count($expectedPath), $data['levels']);
+            self::assertNull($data['levels'][0]['parent_id']);
+            self::assertEqualsCanonicalizing([$root, $other], array_column($data['levels'][0]['categories'], 'id'));
+
+            foreach (array_slice($data['levels'], 1) as $index => $level) {
+                self::assertSame($path[$index], $level['parent_id']);
+                self::assertEqualsCanonicalizing([$path[$index + 1], $siblings[$index]], array_column($level['categories'], 'id'));
+            }
+
+            $loadedIds = array_column(array_merge(...array_column($data['levels'], 'categories')), 'id');
+            self::assertNotContains($unloaded, $loadedIds);
+            self::assertNotContains($unrelated, $loadedIds);
+            self::assertTrue($data['path'][array_key_last($data['path'])]['has_children']);
+        }
+
+        $this->client->request('HEAD', '/web/categories/'.strtoupper($selected).'/branch');
+        self::assertResponseIsSuccessful();
+        self::assertSame('', $this->client->getResponse()->getContent());
+    }
+
+    public function testBranchExcludesDeletedSiblingsAndRejectsMissingCategories(): void
+    {
+        $root = $this->createCategory();
+        $child = $this->createCategory();
+        $this->moveCategory($child, $root);
+        $this->client->request('DELETE', '/web/categories/'.$child);
+        $this->client->request('GET', '/web/categories/'.$root.'/branch');
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->responseData()['path'][0]['has_children']);
+        self::assertCount(1, $this->responseData()['levels'][0]['categories']);
+
+        foreach ([$child, '01994731-abcd-7000-8000-000000000000', 'invalid'] as $id) {
+            $this->client->request('GET', '/web/categories/'.$id.'/branch');
+            self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        }
+    }
+
+    public function testBranchRejectsCyclesAndInactiveAncestors(): void
+    {
+        $root = $this->createCategory();
+        $child = $this->createCategory();
+        $this->moveCategory($child, $root);
+        $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $connection->update('category', ['parent_id' => $child], ['id' => $root]);
+        $this->client->request('GET', '/web/categories/'.$child.'/branch');
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        self::assertArrayNotHasKey('path', $this->responseData());
+        $connection->update('category', ['parent_id' => null, 'deleted_at' => '2026-01-01 00:00:00+00'], ['id' => $root]);
+        $this->client->request('GET', '/web/categories/'.$child.'/branch');
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        self::assertArrayNotHasKey('levels', $this->responseData());
+    }
+
+    // ========================================================================
+    // Levels: roots and immediate children expose active child availability
+    // ========================================================================
+
+    public function testLoadsOneLevelAndUpdatesChildAvailabilityAfterDeletion(): void
+    {
+        $root = $this->createCategory();
+        $child = $this->createCategory();
+        $leaf = $this->createCategory();
+        $this->moveCategory($child, $root);
+        $this->moveCategory($leaf, $child);
+
+        $this->client->request('GET', '/web/categories/');
+        self::assertSame(['categories' => [['id' => $root, 'parent_id' => null, 'has_children' => true, 'deleted_at' => null]]], $this->responseData());
+        $this->client->request('GET', '/web/categories/?parent_id='.$root);
+        self::assertSame(['categories' => [['id' => $child, 'parent_id' => $root, 'has_children' => true, 'deleted_at' => null]]], $this->responseData());
+        $this->client->request('GET', '/web/categories/?parent_id='.strtoupper($root));
+        self::assertSame([$child], array_column($this->responseData()['categories'], 'id'));
+        $this->client->request('GET', '/web/categories/?parent_id='.$leaf);
+        self::assertSame(['categories' => []], $this->responseData());
+        $this->client->request('HEAD', '/web/categories/?parent_id='.$root);
+        self::assertResponseIsSuccessful();
+        self::assertSame('', $this->client->getResponse()->getContent());
+
+        $this->client->request('DELETE', '/web/categories/'.$child);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+        $this->client->request('GET', '/web/categories/'.$root);
+        self::assertFalse($this->responseData()['category']['has_children']);
+        $this->client->request('GET', '/web/categories/?parent_id='.$root);
+        self::assertSame(['categories' => []], $this->responseData());
+
+        foreach ([$child, $leaf, '01994731-abcd-7000-8000-000000000000'] as $id) {
+            $this->client->request('GET', '/web/categories/?parent_id='.$id);
+            self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        }
+
+        foreach (['invalid', '', 'null', '123'] as $id) {
+            $this->client->request('GET', '/web/categories/?parent_id='.$id);
+            self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $this->client->request('GET', '/web/categories/?parent_id[]=invalid');
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+
+        $this->client->request('HEAD', '/web/categories/?parent_id=invalid');
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        self::assertSame('', $this->client->getResponse()->getContent());
+
+        $this->client->request('GET', '/web/categories/'.$root.'/children/');
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
+
+    // ========================================================================
+    // Creation: optional parents are validated and persisted in the initial write
+    // ========================================================================
+
+    public function testCreatesCategoryWithSelectedParent(): void
+    {
+        $parent = $this->createCategory();
+        $this->client->jsonRequest('POST', '/web/categories/', ['parent_id' => $parent]);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $child = $this->responseData()['category']['id'];
+        self::assertSame($parent, $this->responseData()['category']['parent_id']);
+        $this->assertParent($child, $parent);
+
+        $this->client->request('GET', '/web/categories/?parent_id='.$parent);
+        self::assertSame([$child], array_column($this->responseData()['categories'], 'id'));
+        $this->client->request('GET', '/web/categories/');
+        self::assertSame([['id' => $parent, 'parent_id' => null, 'has_children' => true, 'deleted_at' => null]], $this->responseData()['categories']);
+    }
+
+    public function testCreatesRootWithExplicitNullParent(): void
+    {
+        $this->client->jsonRequest('POST', '/web/categories/', ['parent_id' => null]);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertNull($this->responseData()['category']['parent_id']);
+    }
+
+    public function testRejectsMissingAndDeletedCreationParentsWithoutCreatingARoot(): void
+    {
+        $deleted = $this->createCategory();
+        $this->client->request('DELETE', '/web/categories/'.$deleted);
+
+        foreach ([$deleted, '01994731-abcd-7000-8000-000000000000'] as $parent) {
+            $this->client->jsonRequest('POST', '/web/categories/', ['parent_id' => $parent]);
+            self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+            $this->client->request('GET', '/web/categories/');
+            self::assertSame([], $this->responseData()['categories']);
+        }
+    }
+
+    #[DataProvider('invalidCreationPayloads')]
+    public function testRejectsInvalidCreationParent(string $payload, int $status): void
+    {
+        $this->client->request('POST', '/web/categories/', server: ['CONTENT_TYPE' => 'application/json'], content: $payload);
+        self::assertResponseStatusCodeSame($status);
+        $this->client->request('GET', '/web/categories/');
+        self::assertSame([], $this->responseData()['categories']);
+    }
+
+    // ========================================================================
+    // Lifecycle: omitted request bodies remain compatible with root creation
     // ========================================================================
 
     public function testCategoryLifecycle(): void
@@ -79,7 +276,7 @@ final class CategoryControllerTest extends WebTestCase
         self::assertResponseHeaderSame('Content-Type', 'application/json');
         $data = $this->responseData();
         self::assertSame(['category'], array_keys($data));
-        self::assertSame(['id', 'parent_id'], array_keys($data['category']));
+        self::assertSame(['id', 'parent_id', 'has_children', 'deleted_at'], array_keys($data['category']));
         self::assertNull($data['category']['parent_id']);
         $id = $data['category']['id'];
         self::assertInstanceOf(UuidV7::class, Uuid::fromString($id));
@@ -143,10 +340,8 @@ final class CategoryControllerTest extends WebTestCase
         $this->assertParent($child, $secondRoot);
         $this->client->request('GET', '/web/categories/');
         self::assertEqualsCanonicalizing([
-            ['id' => $firstRoot, 'parent_id' => null],
-            ['id' => $secondRoot, 'parent_id' => null],
-            ['id' => $child, 'parent_id' => $secondRoot],
-            ['id' => $grandchild, 'parent_id' => $child],
+            ['id' => $firstRoot, 'parent_id' => null, 'has_children' => false, 'deleted_at' => null],
+            ['id' => $secondRoot, 'parent_id' => null, 'has_children' => true, 'deleted_at' => null],
         ], $this->responseData()['categories']);
 
         $this->moveCategory($child, null);
@@ -211,7 +406,7 @@ final class CategoryControllerTest extends WebTestCase
         $this->assertParent($other, null);
         $this->client->request('GET', '/web/categories/');
         self::assertResponseIsSuccessful();
-        self::assertSame(['categories' => [['id' => $other, 'parent_id' => null]]], $this->responseData());
+        self::assertSame(['categories' => [['id' => $other, 'parent_id' => null, 'has_children' => false, 'deleted_at' => null]]], $this->responseData());
         self::assertSame(4, (int) self::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne('SELECT COUNT(*) FROM category'));
     }
 
@@ -236,7 +431,7 @@ final class CategoryControllerTest extends WebTestCase
 
         $this->client->jsonRequest('PATCH', '/web/categories/'.strtoupper($category), ['parent_id' => strtoupper($parent)]);
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
-        self::assertSame(['category' => ['id' => $category, 'parent_id' => $parent]], $this->responseData());
+        self::assertSame(['category' => ['id' => $category, 'parent_id' => $parent, 'has_children' => false, 'deleted_at' => null]], $this->responseData());
     }
 
     // ========================================================================
@@ -331,6 +526,126 @@ final class CategoryControllerTest extends WebTestCase
     // Helpers: reload persisted parents between HTTP requests
     // ========================================================================
 
+    // ========================================================================
+    // Deleted hierarchy: visibility, restoration and permanent deletion
+    // ========================================================================
+
+    public function testDeletedHierarchyReadsRespectVisibilityAndRejectInvalidModes(): void
+    {
+        $root = $this->createCategory();
+        $child = $this->createCategory();
+        $this->moveCategory($child, $root);
+        $this->client->request('DELETE', '/web/categories/'.$child);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+        $this->client->request('GET', '/web/categories/');
+        self::assertFalse($this->responseData()['categories'][0]['has_children']);
+        $this->client->request('GET', '/web/categories/?include_deleted=1');
+        self::assertTrue($this->responseData()['categories'][0]['has_children']);
+        $this->client->request('GET', '/web/categories/'.$child.'/branch');
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        $this->client->request('GET', '/web/categories/'.$child.'/branch?include_deleted=1');
+        self::assertResponseIsSuccessful();
+        self::assertSame([$root, $child], array_column($this->responseData()['path'], 'id'));
+        self::assertNotNull($this->responseData()['path'][1]['deleted_at']);
+        $this->client->request('GET', '/web/categories/?parent_id='.$root.'&include_deleted=1');
+        self::assertSame([$child], array_column($this->responseData()['categories'], 'id'));
+        $this->client->request('GET', '/web/categories/?parent_id='.$child);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        $this->client->request('GET', '/web/categories/?parent_id='.$child.'&include_deleted=1');
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->responseData()['categories']);
+        $this->client->request('HEAD', '/web/categories/'.$child.'?include_deleted=1');
+        self::assertResponseIsSuccessful();
+        self::assertSame('', $this->client->getResponse()->getContent());
+
+        foreach (['/', '/'.$root, '/'.$root.'/branch', '/?parent_id='.$root] as $suffix) {
+            $this->client->request('GET', '/web/categories'.$suffix);
+            self::assertResponseIsSuccessful();
+            $expected = $this->responseData();
+
+            $this->client->request('GET', '/web/categories'.$suffix.(str_contains($suffix, '?') ? '&' : '?').'include_deleted=invalid');
+            self::assertResponseIsSuccessful();
+            self::assertSame($expected, $this->responseData());
+
+            $this->client->request('GET', '/web/categories'.$suffix.(str_contains($suffix, '?') ? '&' : '?').'include_deleted[]=1');
+            self::assertResponseIsSuccessful();
+            self::assertSame($expected, $this->responseData());
+        }
+    }
+
+    public function testRestoresSubtreeAndNecessaryAncestorsButNotTheirOtherBranches(): void
+    {
+        $root = $this->createCategory();
+        $child = $this->createCategory();
+        $leaf = $this->createCategory();
+        $sibling = $this->createCategory();
+        $this->moveCategory($child, $root);
+        $this->moveCategory($leaf, $child);
+        $this->moveCategory($sibling, $root);
+        $this->client->request('DELETE', '/web/categories/'.$leaf);
+        $this->client->request('DELETE', '/web/categories/'.$root);
+        $this->client->request('POST', '/web/categories/'.$child.'/restore');
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+        self::assertNull($this->responseData()['category']['deleted_at']);
+        $this->assertParent($child, $root);
+        $this->assertParent($root, null);
+        $this->assertParent($leaf, $child);
+        $this->client->request('GET', '/web/categories/'.$sibling);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        $this->client->request('GET', '/web/categories/'.$sibling.'?include_deleted=1');
+        self::assertNotNull($this->responseData()['category']['deleted_at']);
+        $this->client->request('POST', '/web/categories/'.$child.'/restore');
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+    }
+
+    public function testPermanentDeletionRemovesSubtreeLinksButPreservesProducts(): void
+    {
+        $root = $this->createCategory();
+        $child = $this->createCategory();
+        $this->moveCategory($child, $root);
+        $this->client->jsonRequest('POST', '/web/products/', ['sku' => 'CATEGORY-TRASH-PRODUCT']);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $product = $this->responseData()['product']['id'];
+        $this->client->request('PUT', '/web/categories/'.$child.'/products/'.$product);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+        $this->client->request('DELETE', '/web/categories/'.$root);
+        $this->client->request('GET', '/web/categories/'.$child.'/products/?include_deleted=1');
+        self::assertResponseIsSuccessful();
+        self::assertSame([$product], array_column($this->responseData()['products'], 'id'));
+        $this->client->request('PUT', '/web/categories/'.$child.'/products/'.$product);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        $this->client->request('DELETE', '/web/categories/'.$root.'/permanent');
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+        $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM category'));
+        self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM product_category'));
+        $this->client->request('GET', '/web/products/'.$product);
+        self::assertResponseIsSuccessful();
+        $this->client->request('POST', '/web/categories/'.$root.'/restore');
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        $this->client->request('DELETE', '/web/categories/'.$root.'/permanent');
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
+
+    public function testLifecycleConflictsLeaveTheHierarchyUnchanged(): void
+    {
+        $root = $this->createCategory();
+        $child = $this->createCategory();
+        $this->moveCategory($child, $root);
+        $this->client->request('DELETE', '/web/categories/'.$root.'/permanent');
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        $this->client->request('DELETE', '/web/categories/'.$root);
+        $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $connection->executeStatement('UPDATE category SET deleted_at = NULL WHERE id = ?', [$child]);
+        $this->client->request('DELETE', '/web/categories/'.$root.'/permanent');
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        self::assertSame(2, (int) $connection->fetchOne('SELECT COUNT(*) FROM category'));
+        $connection->executeStatement('UPDATE category SET parent_id = ? WHERE id = ?', [Uuid::v7()->toRfc4122(), $root]);
+        $this->client->request('POST', '/web/categories/'.$root.'/restore');
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        self::assertNotNull($connection->fetchOne('SELECT deleted_at FROM category WHERE id = ?', [$root]));
+    }
+
     private function createCategory(): string
     {
         $this->client->request('POST', '/web/categories/');
@@ -343,7 +658,8 @@ final class CategoryControllerTest extends WebTestCase
     {
         $this->client->jsonRequest('PATCH', '/web/categories/'.$id, ['parent_id' => $parentId]);
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
-        self::assertSame(['category' => ['id' => $id, 'parent_id' => $parentId]], $this->responseData());
+        self::assertSame($id, $this->responseData()['category']['id']);
+        self::assertSame($parentId, $this->responseData()['category']['parent_id']);
         self::getContainer()->get(EntityManagerInterface::class)->clear();
     }
 
@@ -352,7 +668,8 @@ final class CategoryControllerTest extends WebTestCase
         self::getContainer()->get(EntityManagerInterface::class)->clear();
         $this->client->request('GET', '/web/categories/'.$id);
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
-        self::assertSame(['category' => ['id' => $id, 'parent_id' => $parentId]], $this->responseData());
+        self::assertSame($id, $this->responseData()['category']['id']);
+        self::assertSame($parentId, $this->responseData()['category']['parent_id']);
     }
 
     private function responseData(): array
@@ -381,13 +698,28 @@ final class CategoryControllerTest extends WebTestCase
         }
     }
 
+    public static function invalidCreationPayloads(): iterable
+    {
+        yield 'invalid UUID' => ['{"parent_id":"invalid"}', Response::HTTP_UNPROCESSABLE_ENTITY];
+
+        yield 'empty parent' => ['{"parent_id":""}', Response::HTTP_UNPROCESSABLE_ENTITY];
+
+        yield 'integer parent' => ['{"parent_id":42}', Response::HTTP_UNPROCESSABLE_ENTITY];
+
+        yield 'array parent' => ['{"parent_id":[]}', Response::HTTP_UNPROCESSABLE_ENTITY];
+
+        yield 'malformed JSON' => ['{"parent_id":', Response::HTTP_BAD_REQUEST];
+    }
+
     public static function failingOperations(): iterable
     {
         $path = '/web/categories/01994731-abcd-7000-8000-000000000000';
 
-        yield 'list' => ['GET', '/web/categories/', 'findAll'];
+        yield 'list' => ['GET', '/web/categories/', 'findByParentId'];
 
         yield 'show' => ['GET', $path, 'findById'];
+
+        yield 'branch' => ['GET', $path.'/branch', 'findBranch'];
 
         yield 'create' => ['POST', '/web/categories/', 'save'];
 
@@ -395,7 +727,7 @@ final class CategoryControllerTest extends WebTestCase
 
         yield 'delete' => ['DELETE', $path, 'delete'];
 
-        yield 'PHP error' => ['GET', '/web/categories/', 'findAll', true];
+        yield 'PHP error' => ['GET', '/web/categories/', 'findByParentId', true];
     }
 
     public static function creationConflicts(): iterable
