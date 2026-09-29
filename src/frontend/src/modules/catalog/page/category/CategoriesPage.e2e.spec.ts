@@ -520,11 +520,13 @@ test.describe('Category drag and drop', () => {
     await page.goto(`/categories/${child.id}`);
     const tree = page.getByRole('tree', { name: 'Category tree', exact: true });
     await expect(page.getByRole('table').getByText(second.sku)).toBeVisible();
+    await page.clock.pauseAt(Date.now());
     await tree.getByRole('treeitem', { name: child.id, exact: true }).hover();
     await page.mouse.down();
     const destination = tree.getByRole('treeitem', { name: other.id, exact: true });
     await destination.hover();
     await destination.hover();
+    await page.clock.runFor(650);
     const nestedRow = tree.getByRole('treeitem', { name: nested.id, exact: true });
     await expect(nestedRow).toBeVisible();
     await nestedRow.hover();

@@ -12,6 +12,11 @@ describe('Product input validation', () => {
     expect(productInputSchema.safeParse({ sku: '😀'.repeat(256) }).success).toBe(false);
     expect(productInputSchema.safeParse({ sku: 'a'.repeat(256) }).success).toBe(false);
   });
+
+  it('trims the same edge characters as the backend before checking and saving a SKU', () => {
+    expect(productInputSchema.parse({ sku: ' \t\0SKU\v\r\n' })).toEqual({ sku: 'SKU' });
+    expect(productInputSchema.safeParse({ sku: ` ${'a'.repeat(255)} ` }).success).toBe(true);
+  });
 });
 
 describe('Product response validation', () => {
