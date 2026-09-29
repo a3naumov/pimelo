@@ -1,0 +1,16 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Core\Catalog\Application\UseCase\Category\ListCategories;
+
+use App\Shared\General\Identity\Id;
+
+final readonly class ListCategoriesQuery
+{
+    public function __construct(
+        public ?Id $parentId = null,
+        public bool $includeDeleted = false,
+    ) {
+    }
+}

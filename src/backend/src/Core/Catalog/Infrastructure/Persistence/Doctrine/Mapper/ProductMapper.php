@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Core\Catalog\Infrastructure\Persistence\Doctrine\Mapper;
+
+use App\Core\Catalog\Domain\Entity\Product;
+use App\Core\Catalog\Infrastructure\Persistence\Doctrine\Entity\Product as DoctrineProduct;
+use App\Shared\General\Identity\Id;
+use Symfony\Component\Uid\Uuid;
+
+final readonly class ProductMapper
+{
+    public function fromDoctrine(DoctrineProduct $doctrineProduct): Product
+    {
+        return new Product(
+            id: Id::fromString($doctrineProduct->id->toRfc4122()),
+            sku: $doctrineProduct->sku,
+            deletedAt: $doctrineProduct->deletedAt,
+        );
+    }
+
+    /**
+     * @throws \InvalidArgumentException
+     */
+    public function toDoctrine(Product $product, ?DoctrineProduct $doctrineProduct = null): DoctrineProduct
+    {
+        if (null === $doctrineProduct) {
+            return new DoctrineProduct(
+                id: Uuid::fromString($product->id->toString()),
+                sku: $product->sku,
+            );
+        }
+
+        $doctrineProduct->sku = $product->sku;
+
+        return $doctrineProduct;
+    }
+}

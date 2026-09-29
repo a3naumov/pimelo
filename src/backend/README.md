@@ -2,6 +2,10 @@
 
 Symfony 8.1 application
 
+The source tree groups business modules under `src/Core/` (currently `Catalog`)
+and reusable modules under `src/Shared/` (currently `General`). Tests mirror
+these paths inside `tests/Unit`, `tests/Integration`, and `tests/Functional`.
+
 ## Checks before pushing
 
 Run the same application checks as GitHub Actions from the backend directory:
@@ -48,9 +52,9 @@ docker compose exec -T backend php bin/console nelmio:apidoc:dump --env=dev --ar
 Redirect stdout to a local file when needed; do not commit generated documents.
 Routes and request schemas are inferred from Symfony metadata. Operation
 descriptions live in infrastructure controllers and refer to resources using
-Nelmio `Model`. Resources live in `Catalog/Infrastructure/Presentation/Http/Web/Resource`
+Nelmio `Model`. Resources live in `Core/Catalog/Infrastructure/Presentation/Http/Web/Resource`
 and describe their JSON contracts with OpenAPI attributes; shared error
-documentation lives in General's HTTP `OpenApi` adapter. Domain and application
+documentation lives in Shared/General's HTTP `OpenApi` adapter. Domain and application
 models do not depend on Nelmio or OpenAPI attributes. Keep these descriptions up
 to date when changing the HTTP
 contract. `config/packages/nelmio_api_doc.yaml` contains only generation settings,

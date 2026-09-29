@@ -1,0 +1,99 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Unit\Core\Catalog\Domain\Service\Category;
+
+use App\Core\Catalog\Domain\Entity\Category;
+use App\Core\Catalog\Domain\Exception\Category\InvalidCategoryHierarchyException;
+use App\Core\Catalog\Domain\Hierarchy\CategoryAncestryInterface;
+use App\Core\Catalog\Domain\Hierarchy\CategoryAncestryResult;
+use App\Core\Catalog\Domain\Service\Category\CategoryMover;
+use App\Shared\General\Identity\Id;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\UsesClass;
+use PHPUnit\Framework\TestCase;
+
+#[CoversClass(CategoryMover::class)]
+#[UsesClass(Category::class)]
+#[UsesClass(CategoryAncestryResult::class)]
+#[UsesClass(Id::class)]
+#[UsesClass(InvalidCategoryHierarchyException::class)]
+final class CategoryMoverTest extends TestCase
+{
+    // ========================================================================
+    // Movement: domain decisions use facts, not persistence details
+    // ========================================================================
+
+    public function testMoveToUnrelatedParent(): void
+    {
+        $category = $this->category('1');
+        $parent = $this->category('2');
+        $ancestry = $this->createMock(CategoryAncestryInterface::class);
+        $ancestry->expects(self::once())->method('inspect')
+            ->with($category->id, $parent->id)
+            ->willReturn(new CategoryAncestryResult(false, false));
+
+        $moved = new CategoryMover($ancestry)->move($category, $parent);
+
+        self::assertEquals($parent->id, $moved->parentId);
+        self::assertNull($category->parentId);
+    }
+
+    public function testMoveToRootDoesNotReadAncestry(): void
+    {
+        $category = $this->category('1')->moveTo($this->category('2')->id);
+        $ancestry = $this->createMock(CategoryAncestryInterface::class);
+        $ancestry->expects(self::never())->method('inspect');
+
+        $moved = new CategoryMover($ancestry)->move($category, null);
+
+        self::assertNull($moved->parentId);
+        self::assertNotNull($category->parentId);
+    }
+
+    public function testSelfParentIsRejectedWithoutReadingAncestry(): void
+    {
+        $category = $this->category('1');
+        $ancestry = $this->createMock(CategoryAncestryInterface::class);
+        $ancestry->expects(self::never())->method('inspect');
+        $this->expectException(InvalidCategoryHierarchyException::class);
+
+        new CategoryMover($ancestry)->move($category, $category);
+    }
+
+    #[DataProvider('invalidAncestry')]
+    public function testInvalidAncestryIsRejected(bool $isAncestor, bool $hasCycle): void
+    {
+        $category = $this->category('1');
+        $ancestry = $this->createStub(CategoryAncestryInterface::class);
+        $ancestry->method('inspect')->willReturn(new CategoryAncestryResult($isAncestor, $hasCycle));
+
+        try {
+            new CategoryMover($ancestry)->move($category, $this->category('2'));
+            self::fail('Invalid ancestry must be rejected.');
+        } catch (InvalidCategoryHierarchyException $exception) {
+            self::assertSame('Moving this category would create a cycle.', $exception->getMessage());
+            self::assertNull($category->parentId);
+        }
+    }
+
+    private function category(string $suffix): Category
+    {
+        return new Category(Id::fromString('01994731-abcd-7000-8000-00000000000'.$suffix));
+    }
+
+    // ========================================================================
+    // Data providers
+    // ========================================================================
+
+    public static function invalidAncestry(): iterable
+    {
+        yield 'descendant parent' => [true, false];
+
+        yield 'pre-existing cycle in parent ancestry' => [false, true];
+
+        yield 'both facts present' => [true, true];
+    }
+}
