@@ -3,7 +3,7 @@
 Symfony 8.1 application
 
 The source tree groups business modules under `src/Core/` (currently `Catalog`)
-and reusable modules under `src/Shared/` (currently `General`). Tests mirror
+and reusable modules under `src/Shared/` (`General` and `Attributes`). Tests mirror
 these paths inside `tests/Unit`, `tests/Integration`, and `tests/Functional`.
 
 ## Checks before pushing
@@ -33,7 +33,7 @@ dependency installation remain separate setup steps, as in CI.
 
 ## Web API documentation
 
-Nelmio generates an OpenAPI 3.0.3 specification for products, categories,
+Nelmio generates an OpenAPI 3.0.3 specification for attributes, products, categories,
 product-category links and the healthcheck. In `dev` and `test`, fetch
 `GET /web/api-docs.json` (by default, `http://localhost:8080/web/api-docs.json` in Docker).
 The bundle is enabled in all environments, but its HTTP route is registered only
@@ -64,6 +64,43 @@ The current development RoadRunner configuration starts a fresh worker for each
 request. If using persistent workers during development, restart those backend
 workers after changing documentation metadata so cached code/specifications are
 reloaded.
+
+## Shared attributes
+
+`Shared/Attributes` is independent of Catalog. Its domain and application layers
+have no Symfony or Doctrine dependencies. Each use case accepts a command or
+query; read results are application views. HTTP resources and OpenAPI metadata
+belong to infrastructure.
+
+Attributes have a UUID v7 `id`, a required `name` (up to 255 Unicode characters,
+trimmed at the edges), `created_at`, `updated_at`, and nullable `deleted_at`.
+Names are not unique. Gedmo manages creation/update timestamps and soft deletion.
+All three dates are returned as ISO 8601 strings; active attributes have
+`deleted_at: null`.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/web/attributes/` | Active list; `?status=deleted` selects deleted records |
+| GET | `/web/attributes/{id}` | Detail; `?include_deleted=1` includes deleted records |
+| POST | `/web/attributes/` | Create with `{"name":"Color"}` |
+| PATCH | `/web/attributes/{id}` | Rename with `{"name":"Size"}` |
+| DELETE | `/web/attributes/{id}` | Soft delete |
+| POST | `/web/attributes/{id}/restore` | Restore a deleted record |
+| DELETE | `/web/attributes/{id}/permanent` | Permanently delete an archived record |
+
+List responses use `{"attributes":[...]}`; detail/create/update/restore responses
+use `{"attribute":{...}}`. Creation returns 201 and deletion returns an empty 204.
+Invalid names return 422, missing or hidden records return 404, and trying to
+restore or permanently delete an active record returns 409.
+
+Apply the new migration to the working database before using these routes:
+
+```sh
+docker compose exec -T backend php bin/console doctrine:migrations:migrate --no-interaction
+```
+
+Tests cover the response contract, validation, duplicate names, timestamps,
+soft-delete visibility, restoration, and permanent deletion against PostgreSQL.
 
 ## Tests
 

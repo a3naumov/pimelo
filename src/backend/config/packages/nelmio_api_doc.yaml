@@ -4,7 +4,7 @@ nelmio_api_doc:
         openapi: 3.0.3
         info:
             title: Pimelo Backend Web API
-            description: Product catalog, category hierarchy and product-category relationships.
+            description: Product catalog, category hierarchy, product-category relationships and shared attributes.
             version: 1.0.0
     areas:
         web:
