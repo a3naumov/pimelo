@@ -1,11 +1,13 @@
 import type { Translate } from '@/shared/i18n';
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { catalogRoutes } from '@/modules/catalog';
+import { attributesRoutes } from '@/modules/attributes';
 import { workspaceRoutes } from '@/modules/workspace';
 
 export const routes: RouteRecordRaw[] = [
   ...workspaceRoutes,
   ...catalogRoutes,
+  ...attributesRoutes,
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ];
 

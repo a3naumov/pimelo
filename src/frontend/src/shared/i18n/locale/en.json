@@ -53,6 +53,65 @@
       "description": "Welcome to your Pimelo workspace."
     }
   },
+  "attributes": {
+    "title": "Shared",
+    "attribute": {
+      "title": "Attributes",
+      "description": "Manage reusable attributes.",
+      "create": "Create attribute",
+      "edit": "Edit attribute",
+      "delete": "Delete attribute",
+      "restore": "Restore attribute",
+      "deletePermanently": "Delete permanently",
+      "back": "Back to attributes",
+      "active": "Active",
+      "deleted": "Deleted",
+      "status": "Attribute status",
+      "loading": "Loading attribute",
+      "loadingList": "Loading attributes",
+      "name": "Name",
+      "id": "ID",
+      "actionsFor": "Actions for {name}",
+      "nameDescription": "An attribute name, up to 255 characters. Duplicate names are allowed.",
+      "validation": {
+        "required": "Name must be a non-empty string.",
+        "tooLong": "Name must not exceed 255 characters."
+      },
+      "empty": {
+        "title": "No attributes yet",
+        "description": "Create your first attribute."
+      },
+      "emptyDeleted": {
+        "title": "No deleted attributes",
+        "description": "Deleted attributes will appear here until restored or permanently deleted."
+      },
+      "deletedTitle": "Attribute is deleted",
+      "deletedDescription": "Restore this attribute before editing it.",
+      "error": {
+        "save": "Could not save attribute",
+        "delete": "Could not delete attribute",
+        "restore": "Could not restore attribute",
+        "load": "Could not load attributes",
+        "notFound": "Attribute not found"
+      },
+      "confirm": {
+        "delete": "Delete attribute?",
+        "permanentDelete": "Permanently delete attribute?",
+        "restore": "Restore attribute?",
+        "deleteDescription": "{name} will move to deleted attributes. You can restore it later.",
+        "permanentDeleteDescription": "{name} will be permanently deleted. This cannot be undone.",
+        "restoreDescription": "{name} will return to active attributes."
+      },
+      "search": "Search by name or ID",
+      "refresh": "Refresh attributes",
+      "attribute": "Name",
+      "results": "{shown} of {total} attributes",
+      "noResults": "No matching attributes",
+      "createdAt": "Created at",
+      "updatedAt": "Updated at",
+      "deletedAt": "Deleted at"
+    }
+  },
   "catalog": {
     "title": "Catalog",
     "category": {

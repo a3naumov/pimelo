@@ -16,6 +16,7 @@ async function mountSidebar(path = '/') {
       { path: '/', name: 'workspace.overview', component: page },
       { path: '/products', name: 'catalog.products', component: page },
       { path: '/categories', name: 'catalog.categories', component: page },
+      { path: '/attributes', name: 'attributes.list', component: page },
     ],
   });
   await router.push(path);
@@ -49,5 +50,18 @@ describe('AppSidebar navigation', () => {
     expect(navigation.get('a[href="/products"]').attributes('data-active')).toBe('true');
     expect(navigation.get('a[href="/"]').attributes('aria-current')).toBeUndefined();
     expect(navigation.get('a[href="/"]').attributes('data-active')).toBeUndefined();
+  });
+
+  it('navigates to shared attributes independently of Catalog', async () => {
+    const { wrapper, router } = await mountSidebar('/products');
+    const navigation = wrapper.get('nav[aria-label="Main navigation"]');
+
+    await navigation.get('a[href="/attributes"]').trigger('click');
+    await flushPromises();
+
+    expect(router.currentRoute.value.name).toBe('attributes.list');
+    expect(navigation.get('a[href="/attributes"]').text()).toBe('Attributes');
+    expect(navigation.get('a[href="/attributes"]').attributes('data-active')).toBe('true');
+    expect(navigation.get('a[href="/products"]').attributes('data-active')).toBeUndefined();
   });
 });
