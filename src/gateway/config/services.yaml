@@ -19,6 +19,11 @@ services:
     App\:
         resource: '../src/'
 
+    App\Health\ServiceHealthChecker:
+        arguments:
+            $services: '%env(json:HEALTHCHECK_SERVICES)%'
+            $timeout: '%env(float:HEALTHCHECK_TIMEOUT)%'
+
     App\Http\ServiceProxy:
         arguments:
             $upstreams:

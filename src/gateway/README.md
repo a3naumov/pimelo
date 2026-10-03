@@ -15,7 +15,8 @@ curl http://localhost/pim/
 curl http://localhost/pim/web/products/
 ```
 
-`GET /` inside gateway is its own healthcheck. Public service prefixes `/pim`,
+`GET /` inside gateway is its own liveness check, used by Docker and independent
+of downstream availability. Public service prefixes `/pim`,
 `/search`, `/media-storage`, and `/notifications` are removed before forwarding.
 Both `/pim` and `/pim/` target PIM's `/`. Unrecognized prefixes return JSON 404;
 Caddy also sends the legacy `/web/*` path here so it cannot become SPA HTML.
@@ -52,10 +53,42 @@ already-sent status code.
 Caddy replaces client forwarding headers. Gateway trusts private proxy addresses;
 keep it on the internal network and do not publish its port directly.
 
+## Service healthcheck
+
+`GET http://localhost/healthcheck` reports configured HTTP dependencies through
+Caddy. Configure the list in gateway's `.env.local` or real environment variables:
+
+```dotenv
+HEALTHCHECK_SERVICES='{"pim":"http://pim:8080/"}'
+HEALTHCHECK_TIMEOUT=2
+```
+
+Only PIM is monitored by default. Search, media-storage, notifications, PostgreSQL,
+Redis and Kafka are not implicitly checked. Adding an HTTP service requires its
+name and healthcheck URL in the JSON object. URLs are trusted operator settings,
+not request parameters. Invalid configuration is an error, not a healthy result.
+
+Requests start concurrently, with a two-second timeout per dependency and no
+redirects or retries. A healthy response must be HTTP 200 with JSON `status: "ok"`.
+Other responses, invalid JSON and connection failures make that dependency
+`unavailable`, without hiding results for other dependencies.
+
+```json
+{"service":"gateway","status":"ok","services":{"pim":{"status":"ok"}}}
+```
+
+The endpoint returns HTTP 200 when every configured dependency is healthy; HTTP
+503 uses `status: "degraded"` and marks failed dependencies `unavailable`. An empty
+configured object returns an empty `services` object. Responses use `no-store`,
+include CORS headers for allowed origins, and never expose internal URLs or
+exception messages. This checks HTTP availability, not PIM's database readiness.
+
+Docker continues to use `/`: a PIM outage must not mark gateway itself unhealthy.
+
 ## CORS
 
-NelmioCorsBundle runs only here, not in PIM. It applies to all four public service
-prefixes, including upstream errors and gateway-generated 502/504 responses.
+NelmioCorsBundle runs only here, not in PIM. It applies to `/healthcheck` and all
+four public service prefixes, including upstream errors and gateway-generated 502/504 responses.
 Preflight does not contact downstream services. Cookie credentials are disabled.
 
 Development/test allow localhost and 127.0.0.1 on ports 5173/4173. Production
