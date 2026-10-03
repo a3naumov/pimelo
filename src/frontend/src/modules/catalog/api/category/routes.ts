@@ -1,5 +1,6 @@
 export const categoryApiRoutes = {
   collection: '/categories/',
+  slugPreview: '/categories/slug-preview',
   item: (id: string) => `/categories/${encodeURIComponent(id)}`,
   restore: (id: string) => `/categories/${encodeURIComponent(id)}/restore`,
   permanent: (id: string) => `/categories/${encodeURIComponent(id)}/permanent`,

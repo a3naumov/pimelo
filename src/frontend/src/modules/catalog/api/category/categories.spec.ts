@@ -3,6 +3,8 @@ import { ZodError } from 'zod';
 import { apiClient } from '@/shared/api/client';
 import * as api from './categories';
 const category = {
+  name: '0195f582-9762-7c2a-9228-4060489e06d8',
+  slug: 'category',
   id: '0195f582-9762-7c2a-9228-4060489e06d8',
   parent_id: null,
   has_children: false,
@@ -40,8 +42,14 @@ describe('Category API contract', () => {
     async (parent_id) => {
       const created = { ...category, parent_id };
       const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: { category: created } });
-      expect(await api.createCategory({ parent_id })).toEqual(created);
-      expect(post).toHaveBeenCalledExactlyOnceWith('/categories/', { parent_id });
+      expect(await api.createCategory({ name: 'Category', slug: null, parent_id })).toEqual(
+        created,
+      );
+      expect(post).toHaveBeenCalledExactlyOnceWith('/categories/', {
+        name: 'Category',
+        slug: null,
+        parent_id,
+      });
     },
   );
   it('patches nullable parent and accepts 204', async () => {

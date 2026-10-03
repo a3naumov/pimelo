@@ -1,10 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import { categoryPath, categoryRows, previewCategoryMove, subtreeIds } from './hierarchy';
 const categories = [
-  { id: 'root', parent_id: null, has_children: true, deleted_at: null },
-  { id: 'child', parent_id: 'root', has_children: true, deleted_at: null },
-  { id: 'leaf', parent_id: 'child', has_children: false, deleted_at: null },
-  { id: 'other', parent_id: null, has_children: true, deleted_at: null },
+  {
+    name: 'root',
+    slug: 'category',
+    id: 'root',
+    parent_id: null,
+    has_children: true,
+    deleted_at: null,
+  },
+  {
+    name: 'child',
+    slug: 'category',
+    id: 'child',
+    parent_id: 'root',
+    has_children: true,
+    deleted_at: null,
+  },
+  {
+    name: 'leaf',
+    slug: 'category',
+    id: 'leaf',
+    parent_id: 'child',
+    has_children: false,
+    deleted_at: null,
+  },
+  {
+    name: 'other',
+    slug: 'category',
+    id: 'other',
+    parent_id: null,
+    has_children: true,
+    deleted_at: null,
+  },
 ];
 describe('Category hierarchy', () => {
   it('expands loaded branches and uses server child availability', () => {
@@ -32,15 +60,38 @@ describe('Category hierarchy', () => {
   });
   it('terminates on cycles and handles missing parents', () => {
     const cyclic = [
-      { id: 'a', parent_id: 'b', has_children: true, deleted_at: null },
-      { id: 'b', parent_id: 'a', has_children: true, deleted_at: null },
+      {
+        name: 'a',
+        slug: 'category',
+        id: 'a',
+        parent_id: 'b',
+        has_children: true,
+        deleted_at: null,
+      },
+      {
+        name: 'b',
+        slug: 'category',
+        id: 'b',
+        parent_id: 'a',
+        has_children: true,
+        deleted_at: null,
+      },
     ];
     expect(subtreeIds(cyclic, 'a')).toEqual(new Set(['a', 'b']));
     expect(categoryPath(cyclic, 'a')).toHaveLength(2);
     expect(categoryRows(cyclic, new Set(['a', 'b']))).toEqual([]);
     expect(
       categoryRows(
-        [{ id: 'orphan', parent_id: 'missing', has_children: false, deleted_at: null }],
+        [
+          {
+            name: 'orphan',
+            slug: 'category',
+            id: 'orphan',
+            parent_id: 'missing',
+            has_children: false,
+            deleted_at: null,
+          },
+        ],
         new Set(),
       )[0]?.depth,
     ).toBeUndefined();

@@ -10,8 +10,24 @@ import {
   type CategoryResponse,
   type Category,
   type CategoryInput,
+  type CategoryUpdateInput,
+  categorySlugPreviewSchema,
+  type CategorySlugPreview,
+  type CategorySlugPreviewInput,
 } from '../../model/category/schemas';
 import { categoryApiRoutes as routes } from './routes';
+
+export async function previewCategorySlug(
+  input: CategorySlugPreviewInput,
+  signal?: AbortSignal,
+): Promise<CategorySlugPreview> {
+  const { data } = await apiClient.get<CategorySlugPreview>(routes.slugPreview, {
+    params: input,
+    signal,
+  });
+
+  return categorySlugPreviewSchema.parse(data);
+}
 
 export async function getCategories(
   parentId: string | null,
@@ -56,11 +72,11 @@ export async function createCategory(input: CategoryInput): Promise<Category> {
   return categoryResponseSchema.parse(data).category;
 }
 
-export async function updateCategory(id: string, input: CategoryInput): Promise<Category> {
+export async function updateCategory(id: string, input: CategoryUpdateInput): Promise<Category> {
   const { data } = await apiClient.patch<
     CategoryResponse,
-    AxiosResponse<CategoryResponse, CategoryInput>,
-    CategoryInput
+    AxiosResponse<CategoryResponse, CategoryUpdateInput>,
+    CategoryUpdateInput
   >(routes.item(id), input);
 
   return categoryResponseSchema.parse(data).category;

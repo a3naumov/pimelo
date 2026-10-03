@@ -225,7 +225,7 @@ function keydown(event: KeyboardEvent, row: CategoryRow, index: number) {
           :aria-label="t('catalog.category.newCategory')"
           :title="
             [
-              ...(draftParentPath ?? []).map((category) => category.id),
+              ...(draftParentPath ?? []).map((category) => category.name),
               t('catalog.category.newCategory'),
             ].join(' / ')
           "
@@ -247,10 +247,10 @@ function keydown(event: KeyboardEvent, row: CategoryRow, index: number) {
           :aria-busy="
             expanded.has(entry.row.category.id) && states.get(entry.row.category.id)?.isFetching
           "
-          :aria-label="entry.row.category.id"
+          :aria-label="entry.row.category.name"
           :title="
             categoryPath(categories, entry.row.category.id)
-              .map((item) => item.id)
+              .map((item) => item.name)
               .join(' / ')
           "
           :tabindex="tabStop === entry.row.category.id ? 0 : -1"
@@ -290,7 +290,7 @@ function keydown(event: KeyboardEvent, row: CategoryRow, index: number) {
                 expanded.has(entry.row.category.id)
                   ? 'catalog.category.collapse'
                   : 'catalog.category.expand',
-                { id: entry.row.category.id },
+                { id: entry.row.category.name },
               )
             "
             @click.stop="!disabled && toggle(entry.row.category.id)"
@@ -313,7 +313,7 @@ function keydown(event: KeyboardEvent, row: CategoryRow, index: number) {
             variant="outline"
             size="sm"
             :disabled="disabled"
-            :aria-label="t('catalog.category.retryChildren', { id: entry.row.category.id })"
+            :aria-label="t('catalog.category.retryChildren', { id: entry.row.category.name })"
             @click.stop="states.get(entry.row.category.id)?.refetch()"
             >{{ t('common.tryAgain') }}</Button
           >
@@ -326,9 +326,7 @@ function keydown(event: KeyboardEvent, row: CategoryRow, index: number) {
           <Badge v-if="entry.row.category.deleted_at" variant="secondary">{{
             t('catalog.category.deleted')
           }}</Badge>
-          <span class="max-w-44 truncate"
-            >{{ entry.row.category.id.slice(0, 8) }}…{{ entry.row.category.id.slice(-8) }}</span
-          >
+          <span class="max-w-44 truncate">{{ entry.row.category.name }}</span>
         </div>
       </template>
     </div>

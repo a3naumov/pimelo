@@ -18,9 +18,30 @@ import {
   useCategoryProducts,
 } from './queries';
 import { useProductMutations } from '../product/queries';
-const root = { id: 'root', parent_id: null, has_children: false, deleted_at: null };
-const child = { id: 'child', parent_id: 'root', has_children: false, deleted_at: null };
-const other = { id: 'other', parent_id: null, has_children: false, deleted_at: null };
+const root = {
+  name: 'root',
+  slug: 'category',
+  id: 'root',
+  parent_id: null,
+  has_children: false,
+  deleted_at: null,
+};
+const child = {
+  name: 'child',
+  slug: 'category',
+  id: 'child',
+  parent_id: 'root',
+  has_children: false,
+  deleted_at: null,
+};
+const other = {
+  name: 'other',
+  slug: 'category',
+  id: 'other',
+  parent_id: null,
+  has_children: false,
+  deleted_at: null,
+};
 const branch = (path: (typeof child | typeof root)[]) => ({
   path,
   levels: path.map((category) => ({ parent_id: category.parent_id, categories: [category] })),
@@ -55,6 +76,39 @@ function setup<T>(use: () => T, prepare?: (client: QueryClient) => void) {
 }
 
 describe('Category cache consistency', () => {
+  it('updates names and slugs in both visibility modes without refetching hierarchy or products', async () => {
+    const updated = { ...root, name: 'Summer shoes', slug: 'summer-shoes' };
+    const read = vi.spyOn(api, 'getCategoryBranch');
+    const products = vi.spyOn(api, 'getCategoryProducts');
+    vi.spyOn(api, 'updateCategory').mockResolvedValue(updated);
+    const { client, result } = setup(useCategoryMutations, (client) => {
+      for (const mode of [false, true]) {
+        client.setQueryData(categoryKeys.detail(root.id, mode), root);
+        client.setQueryData(categoryKeys.rootList(mode), {
+          categories: [{ ...root, has_children: mode }],
+        });
+        client.setQueryData(
+          categoryKeys.branch(child.id, mode),
+          branch([{ ...root, has_children: mode }, child]),
+        );
+        client.setQueryData(categoryKeys.products(root.id, mode), { products: [] });
+      }
+    });
+    await result.update.mutateAsync({
+      id: root.id,
+      input: { name: updated.name, slug: updated.slug, parent_id: null },
+    });
+
+    for (const mode of [false, true]) {
+      expect(client.getQueryData(categoryKeys.rootList(mode))).toEqual({
+        categories: [{ ...updated, has_children: mode }],
+      });
+      expect(client.getQueryState(categoryKeys.products(root.id, mode))?.isInvalidated).toBe(false);
+    }
+
+    expect(read).not.toHaveBeenCalled();
+    expect(products).not.toHaveBeenCalled();
+  });
   it('loads only the created category after creation without refetching the previous selection', async () => {
     const created = { ...child, id: 'created' };
     const read = vi
@@ -75,7 +129,7 @@ describe('Category cache consistency', () => {
     await vi.waitFor(() => expect(result.products.isSuccess.value).toBe(true));
     read.mockClear();
     products.mockClear();
-    await result.create.mutateAsync({ parent_id: root.id });
+    await result.create.mutateAsync({ name: 'Category', slug: null, parent_id: root.id });
     expect(read).not.toHaveBeenCalled();
     expect(products).not.toHaveBeenCalled();
     expect(client.getQueryState(categoryKeys.products(child.id))?.isInvalidated).toBe(false);
@@ -416,6 +470,8 @@ describe('Category tree refresh', () => {
 
   it('refreshes cached descendant products on their next selection without fetching them eagerly', async () => {
     const grandchild = {
+      name: 'grandchild',
+      slug: 'category',
       id: 'grandchild',
       parent_id: child.id,
       has_children: false,
@@ -542,7 +598,7 @@ describe('Category tree refresh', () => {
   it.each([1, 2, 3])(
     'recovers after %i deleted categories without loading their products',
     async (missing) => {
-      const leaf = { ...child, id: 'leaf', parent_id: child.id };
+      const leaf = { ...child, name: 'leaf', slug: 'category', id: 'leaf', parent_id: child.id };
       const path = [root, child, leaf];
       const deleted = path.slice(-missing).map((category) => category.id);
       const read = vi.spyOn(api, 'getCategoryBranch').mockImplementation(async (id) => {

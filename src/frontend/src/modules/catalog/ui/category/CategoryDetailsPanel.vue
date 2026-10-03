@@ -7,7 +7,7 @@ import { Badge } from '@/shared/ui/badge';
 import { Separator } from '@/shared/ui/separator';
 import { Spinner } from '@/shared/ui/spinner';
 import type { Category, CategoryInput } from '../../model/category/schemas';
-import CategoryParentForm from './CategoryParentForm.vue';
+import CategoryForm from './CategoryForm.vue';
 
 const props = defineProps<{
   id: string;
@@ -72,7 +72,7 @@ const isDeleted = computed(() => !!props.category.deleted_at);
               }}</Button></span
             >
             <span v-else>{{
-              [t('catalog.category.root'), ...displayedPath.map((item) => item.id)].join(' / ')
+              [t('catalog.category.root'), ...displayedPath.map((item) => item.name)].join(' / ')
             }}</span>
           </dd>
         </div>
@@ -80,7 +80,17 @@ const isDeleted = computed(() => !!props.category.deleted_at);
       <p v-if="category.deleted_at" class="text-sm text-muted-foreground">
         {{ t('catalog.category.deletedAt', { date: category.deleted_at }) }}
       </p>
-      <CategoryParentForm
+      <dl v-if="isDeleted" class="flex flex-col gap-4 text-sm">
+        <div>
+          <dt class="text-muted-foreground">{{ t('catalog.category.name') }}</dt>
+          <dd>{{ category.name }}</dd>
+        </div>
+        <div>
+          <dt class="text-muted-foreground">{{ t('catalog.category.slug') }}</dt>
+          <dd>{{ category.slug }}</dd>
+        </div>
+      </dl>
+      <CategoryForm
         v-if="!isDeleted"
         :include-deleted="includeDeleted"
         :key="id"

@@ -12,9 +12,30 @@ import type {
   CategoryBranchResponse,
 } from '../../model/category/schemas';
 
-const root = { id: 'root', parent_id: null, has_children: true, deleted_at: null };
-const child = { id: 'child', parent_id: root.id, has_children: true, deleted_at: null };
-const other = { id: 'other', parent_id: null, has_children: true, deleted_at: null };
+const root = {
+  name: 'root',
+  slug: 'category',
+  id: 'root',
+  parent_id: null,
+  has_children: true,
+  deleted_at: null,
+};
+const child = {
+  name: 'child',
+  slug: 'category',
+  id: 'child',
+  parent_id: root.id,
+  has_children: true,
+  deleted_at: null,
+};
+const other = {
+  name: 'other',
+  slug: 'category',
+  id: 'other',
+  parent_id: null,
+  has_children: true,
+  deleted_at: null,
+};
 const clients: QueryClient[] = [];
 enableAutoUnmount(afterEach);
 afterEach(() => {
@@ -148,7 +169,13 @@ describe('Single expanded path', () => {
   });
 
   it('closes the previous sibling branch when another one is expanded', async () => {
-    const otherChild = { ...child, id: 'other-child', parent_id: other.id };
+    const otherChild = {
+      ...child,
+      name: 'other-child',
+      slug: 'category',
+      id: 'other-child',
+      parent_id: other.id,
+    };
     vi.spyOn(api, 'getCategories').mockResolvedValue({ categories: [root, other] });
     vi.spyOn(api, 'getCategoryChildren').mockImplementation(async (id) => ({
       categories: id === root.id ? [child] : [otherChild],
@@ -168,7 +195,7 @@ describe('Single expanded path', () => {
   });
 
   it('preserves descendants on selection and collapses them only for refresh', async () => {
-    const leaf = { ...child, id: 'leaf', parent_id: child.id };
+    const leaf = { ...child, name: 'leaf', slug: 'category', id: 'leaf', parent_id: child.id };
     vi.spyOn(api, 'getCategoryBranch').mockResolvedValue({
       path: [root, child, leaf],
       levels: [
@@ -241,6 +268,8 @@ describe('Single expanded path', () => {
   it('keeps loading descendants when an ancestor is selected before the response arrives', async () => {
     const leaf = {
       ...child,
+      name: 'leaf',
+      slug: 'category',
       id: 'leaf',
       parent_id: child.id,
       has_children: false,

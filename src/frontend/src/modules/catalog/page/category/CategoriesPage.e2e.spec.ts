@@ -13,7 +13,13 @@ const second = { id: '0195f582-9762-7c2a-9228-4060489e0612', sku: 'COTTON-TEE', 
 const childrenPath = (id: string) => `/categories/?parent_id=${id}`;
 const isChildrenPath = (path: string) => path.startsWith('/categories/?parent_id=');
 
-type MockCategory = { id: string; parent_id: string | null; deleted_at?: string | null };
+type MockCategory = {
+  id: string;
+  parent_id: string | null;
+  name?: string;
+  slug?: string;
+  deleted_at?: string | null;
+};
 
 async function mockCatalog(page: Page) {
   const state = {
@@ -44,6 +50,29 @@ async function mockCatalog(page: Page) {
     const visible = (category: MockCategory) => includeDeleted || !category.deleted_at;
     const method = route.request().method();
 
+    if (path === '/categories/slug-preview') {
+      const name = url.searchParams.get('name') ?? '';
+      const custom = url.searchParams.get('slug');
+      const slug =
+        (custom || name)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '') || 'category';
+      const taken = (value: string) =>
+        state.categories.some(
+          (item) =>
+            (item.slug ?? item.id) === value && item.id !== url.searchParams.get('exclude_id'),
+        );
+      let suggestion = slug;
+      let suffix = 0;
+
+      while (taken(suggestion)) {
+        suggestion = `${slug}-${++suffix}`;
+      }
+
+      return route.fulfill({ json: { slug, available: !taken(slug), suggested_slug: suggestion } });
+    }
+
     if (method === 'GET') {
       state.reads.push(readPath);
       state.visibilityReads.push({ path, includeDeleted });
@@ -59,6 +88,8 @@ async function mockCatalog(page: Page) {
 
     const resource = (category: MockCategory) => ({
       ...category,
+      name: category.name ?? category.id,
+      slug: category.slug ?? category.id,
       deleted_at: category.deleted_at ?? null,
       has_children: state.categories.some(
         (item) => item.parent_id === category.id && visible(item),
@@ -93,9 +124,30 @@ async function mockCatalog(page: Page) {
       }
 
       if (method === 'POST') {
+        const input = categoryInputSchema.parse(route.request().postDataJSON());
+        const base = (input.slug || input.name).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        let slug = base;
+        let suffix = 0;
+
+        while (state.categories.some((item) => (item.slug ?? item.id) === slug)) {
+          if (input.slug && !input.allow_slug_suffix) {
+            return route.fulfill({
+              status: 409,
+              json: {
+                error:
+                  'This category slug is already in use. Choose another slug or accept the suggested suffix.',
+              },
+            });
+          }
+
+          slug = `${base}-${++suffix}`;
+        }
+
         const category = {
           ...created,
-          ...categoryInputSchema.parse(route.request().postDataJSON()),
+          name: input.name,
+          slug,
+          parent_id: input.parent_id,
         };
         state.categories.push(category);
 
@@ -234,7 +286,10 @@ async function mockCatalog(page: Page) {
       }
 
       if (method === 'PATCH') {
-        category.parent_id = route.request().postDataJSON().parent_id;
+        const input = categoryInputSchema.parse(route.request().postDataJSON());
+        category.parent_id = input.parent_id;
+        category.name = input.name;
+        category.slug = input.slug ?? category.slug ?? category.id;
       }
 
       if (method === 'DELETE') {
@@ -267,6 +322,63 @@ async function mockCatalog(page: Page) {
 
   return state;
 }
+
+test.describe('Category name and slug editor', () => {
+  test('previews automatic slugs, accepts custom slugs and displays readable category names', async ({
+    page,
+  }) => {
+    const state = await mockCatalog(page);
+    state.categories = [];
+    await page.goto('/categories');
+    await page.getByRole('button', { name: 'Create category', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+    await page.getByLabel('Name', { exact: true }).fill('Summer Shoes');
+    await expect(page.getByLabel('Slug', { exact: false })).toHaveValue('summer-shoes');
+    await expect(page.getByText('Automatic', { exact: true })).toBeVisible();
+    await page.getByLabel('Slug', { exact: false }).fill('My Custom Slug');
+    await expect(page.getByText('Automatic', { exact: true })).toHaveCount(0);
+    await page.getByLabel('Name', { exact: true }).fill('Summer Collection');
+    await expect(page.getByLabel('Slug', { exact: false })).toHaveValue('My Custom Slug');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page).toHaveURL(`/categories/${created.id}`);
+    await expect(
+      page.getByRole('treeitem', { name: 'Summer Collection', exact: true }),
+    ).toBeVisible();
+    expect(state.writes).toHaveLength(1);
+    expect(JSON.parse(state.writes[0]!.body!)).toEqual({
+      name: 'Summer Collection',
+      slug: 'My Custom Slug',
+      parent_id: null,
+      allow_slug_suffix: false,
+    });
+  });
+
+  test('warns about custom conflicts and saves only after explicit suffix consent', async ({
+    page,
+  }) => {
+    const state = await mockCatalog(page);
+    state.categories[0]!.slug = 'shoes';
+    await page.goto('/categories');
+    await page.getByRole('button', { name: 'Create category', exact: true }).click();
+    await page.getByLabel('Name', { exact: true }).fill('New shoes');
+    await page.getByLabel('Slug', { exact: false }).fill('SHOES');
+    await expect(
+      page.getByText('This slug is already in use. Available suggestion: shoes-1'),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+    expect(state.writes).toEqual([]);
+    await page.getByRole('button', { name: 'Save with suggested slug', exact: true }).click();
+    await expect(page).toHaveURL(`/categories/${created.id}`);
+    await expect(page.getByLabel('Slug', { exact: false })).toHaveValue('shoes-1');
+    expect(state.writes).toHaveLength(1);
+    expect(JSON.parse(state.writes[0]!.body!)).toEqual({
+      name: 'New shoes',
+      slug: 'SHOES',
+      parent_id: null,
+      allow_slug_suffix: true,
+    });
+  });
+});
 
 test.describe('Category row activation', () => {
   test('selects and toggles children without duplicate reads', async ({ page }) => {
@@ -370,12 +482,18 @@ test('creates a root, edits its parent and deletes a subtree while preserving pr
     'Root level',
   );
   expect(state.writes).toEqual([]);
+  await page.getByLabel('Name', { exact: true }).fill(created.id);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page).toHaveURL(`/categories/${created.id}`);
   expect(state.writes[0]).toEqual({
     method: 'POST',
     path: '/categories/',
-    body: JSON.stringify({ parent_id: null }),
+    body: JSON.stringify({
+      name: created.id,
+      slug: null,
+      parent_id: null,
+      allow_slug_suffix: false,
+    }),
   });
   await expect(page.getByRole('button', { name: 'Save changes' })).toBeDisabled();
   await page.getByRole('button', { name: 'Parent category', exact: true }).click();
@@ -387,7 +505,7 @@ test('creates a root, edits its parent and deletes a subtree while preserving pr
   await expect(page.getByRole('alert')).toContainText('Please retry this change.');
   state.failWrite = false;
   await page.getByRole('button', { name: 'Save changes' }).click();
-  await expect(page.getByText('Parent updated', { exact: true })).toBeVisible();
+  await expect(page.getByText('Category updated', { exact: true })).toBeVisible();
   expect(state.categories.find((item) => item.id === created.id)?.parent_id).toBe(root.id);
   await page
     .getByRole('tree', { name: 'Category tree', exact: true })
@@ -432,11 +550,21 @@ test('opens a sibling draft and creates it only after Save', async ({ page }) =>
   expect(state.writes).toEqual([]);
   expect(state.categories.some((category) => category.id === created.id)).toBe(false);
   state.reads = [];
+  await page.getByLabel('Name', { exact: true }).fill(created.id);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page).toHaveURL(`/categories/${created.id}`);
   await expect(placeholder).toHaveCount(0);
   expect(state.writes).toEqual([
-    { method: 'POST', path: '/categories/', body: JSON.stringify({ parent_id: root.id }) },
+    {
+      method: 'POST',
+      path: '/categories/',
+      body: JSON.stringify({
+        name: created.id,
+        slug: null,
+        parent_id: root.id,
+        allow_slug_suffix: false,
+      }),
+    },
   ]);
   const tree = page.getByRole('tree', { name: 'Category tree', exact: true });
   await expect(tree.getByRole('treeitem', { name: grandchild.id, exact: true })).toHaveCount(0);
@@ -467,7 +595,7 @@ test('cancels a root sibling draft without writing to the backend', async ({ pag
   await expect(page.getByRole('button', { name: 'Parent category', exact: true })).toContainText(
     'Root level',
   );
-  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
   const placeholder = page.getByRole('treeitem', { name: 'New category', exact: true });
   await expect(placeholder).toHaveAttribute('aria-level', '1');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -489,6 +617,7 @@ test('preserves a changed creation parent on failure and saves it on retry', asy
     .click();
   expect(state.writes).toEqual([]);
   state.failWrite = true;
+  await page.getByLabel('Name', { exact: true }).fill(created.id);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Please retry this change.');
   await expect(page.getByRole('button', { name: 'Parent category', exact: true })).toContainText(
@@ -500,11 +629,30 @@ test('preserves a changed creation parent on failure and saves it on retry', asy
   await expect(placeholder).toHaveAttribute('aria-level', '2');
   expect(state.categories.some((category) => category.id === created.id)).toBe(false);
   state.failWrite = false;
+  await page.getByLabel('Name', { exact: true }).fill(created.id);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page).toHaveURL(`/categories/${created.id}`);
   expect(state.writes).toEqual([
-    { method: 'POST', path: '/categories/', body: JSON.stringify({ parent_id: other.id }) },
-    { method: 'POST', path: '/categories/', body: JSON.stringify({ parent_id: other.id }) },
+    {
+      method: 'POST',
+      path: '/categories/',
+      body: JSON.stringify({
+        name: created.id,
+        slug: null,
+        parent_id: other.id,
+        allow_slug_suffix: false,
+      }),
+    },
+    {
+      method: 'POST',
+      path: '/categories/',
+      body: JSON.stringify({
+        name: created.id,
+        slug: null,
+        parent_id: other.id,
+        allow_slug_suffix: false,
+      }),
+    },
   ]);
 });
 
@@ -608,12 +756,22 @@ test.describe('Category drag and drop', () => {
       {
         method: 'PATCH',
         path: `/categories/${child.id}`,
-        body: JSON.stringify({ parent_id: other.id }),
+        body: JSON.stringify({
+          name: child.id,
+          slug: child.id,
+          parent_id: other.id,
+          allow_slug_suffix: false,
+        }),
       },
       {
         method: 'PATCH',
         path: `/categories/${child.id}`,
-        body: JSON.stringify({ parent_id: other.id }),
+        body: JSON.stringify({
+          name: child.id,
+          slug: child.id,
+          parent_id: other.id,
+          allow_slug_suffix: false,
+        }),
       },
     ]);
   });
@@ -1123,7 +1281,7 @@ test('reveals a moved category under its new parent and updates both parent expa
     .getByRole('treeitem', { name: other.id, exact: true })
     .click();
   await page.getByRole('button', { name: 'Save changes' }).click();
-  await expect(page.getByText('Parent updated', { exact: true })).toBeVisible();
+  await expect(page.getByText('Category updated', { exact: true })).toBeVisible();
   const tree = page.getByRole('tree', { name: 'Category tree', exact: true });
   await expect(tree.getByRole('treeitem', { name: child.id, exact: true })).toHaveAttribute(
     'title',
@@ -1419,7 +1577,7 @@ test.describe('Parent move preview', () => {
     await expect(page.getByText(path, { exact: true })).toBeVisible();
     state.failWrite = false;
     await page.getByRole('button', { name: 'Save changes' }).click();
-    await expect(page.getByText('Parent updated', { exact: true })).toBeVisible();
+    await expect(page.getByText('Category updated', { exact: true })).toBeVisible();
     await expect(selected).toHaveAttribute('aria-level', '3');
     await expect(page.getByRole('button', { name: 'Save changes' })).toBeDisabled();
     expect(state.categories.find((category) => category.id === child.id)?.parent_id).toBe(

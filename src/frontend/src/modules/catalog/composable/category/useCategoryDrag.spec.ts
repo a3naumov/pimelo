@@ -2,9 +2,23 @@ import { effectScope, nextTick, ref } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useCategoryDrag } from './useCategoryDrag';
 
-const root = { id: 'root', parent_id: null, has_children: true, deleted_at: null };
-const child = { ...root, id: 'child', parent_id: root.id };
-const leaf = { ...child, id: 'leaf', parent_id: child.id, has_children: false };
+const root = {
+  name: 'root',
+  slug: 'category',
+  id: 'root',
+  parent_id: null,
+  has_children: true,
+  deleted_at: null,
+};
+const child = { ...root, name: 'child', slug: 'category', id: 'child', parent_id: root.id };
+const leaf = {
+  ...child,
+  name: 'leaf',
+  slug: 'category',
+  id: 'leaf',
+  parent_id: child.id,
+  has_children: false,
+};
 const other = { ...root, id: 'other', has_children: false };
 const deleted = { ...other, id: 'deleted', deleted_at: '2026-09-28T12:00:00Z' };
 const categories = [root, child, leaf, other, deleted];

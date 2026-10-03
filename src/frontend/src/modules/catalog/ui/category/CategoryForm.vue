@@ -7,6 +7,8 @@ import { Field, FieldGroup, FieldLabel, FieldDescription, FieldError } from '@/s
 import { Alert, AlertTitle, AlertDescription } from '@/shared/ui/alert';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/shared/ui/sheet';
 import { Spinner } from '@/shared/ui/spinner';
+import { Input } from '@/shared/ui/input';
+import { Badge } from '@/shared/ui/badge';
 import type { Category, CategoryInput } from '../../model/category/schemas';
 import { useCategoryParentPath } from '../../model/category/queries';
 import { useCategoryForm } from '../../form/category/useCategoryForm';
@@ -18,7 +20,7 @@ const props = defineProps<{
   contextId?: string;
   pending: boolean;
   includeDeleted?: boolean;
-  parentSelection?: CategoryInput;
+  parentSelection?: Pick<CategoryInput, 'parent_id'>;
   onSave: (input: CategoryInput) => Promise<Category>;
 }>();
 const emit = defineEmits<{
@@ -28,13 +30,31 @@ const emit = defineEmits<{
 }>();
 const { t } = useTranslation();
 const open = ref(false);
-const { values, error, saved, disabled, submitDisabled, isSubmitting, select, submit } =
-  useCategoryForm({
-    mode: props.category ? 'edit' : 'create',
-    initialParent: () => props.category?.parent_id ?? props.initialParent ?? null,
-    disabled: () => props.pending,
-    onSave: props.onSave,
-  });
+const {
+  values,
+  error,
+  saved,
+  disabled,
+  submitDisabled,
+  isSubmitting,
+  select,
+  submit,
+  change,
+  automatic,
+  preview,
+  previewCurrent,
+  slugConflict,
+  fieldErrors,
+  saveWithSuffix,
+} = useCategoryForm({
+  mode: props.category ? 'edit' : 'create',
+  initialParent: () => props.category?.parent_id ?? props.initialParent ?? null,
+  initialName: () => props.category?.name ?? '',
+  initialSlug: () => props.category?.slug ?? '',
+  categoryId: props.category?.id,
+  disabled: () => props.pending,
+  onSave: props.onSave,
+});
 const parentPath = useCategoryParentPath(
   () => props.category?.id ?? props.contextId ?? '',
   () => values.value.parent_id,
@@ -51,7 +71,7 @@ watch(
 );
 const path = computed(() =>
   values.value.parent_id
-    ? parentPath.value?.map((item) => item.id).join(' / ') || values.value.parent_id
+    ? parentPath.value?.map((item) => item.name).join(' / ') || values.value.parent_id
     : t('catalog.category.root'),
 );
 const previewPath = computed(() => {
@@ -86,8 +106,55 @@ function choose(id: string | null) {
       ><AlertTitle>{{ t('catalog.category.error') }}</AlertTitle
       ><AlertDescription>{{ error.message }}</AlertDescription></Alert
     >
-    <FieldGroup
-      ><Field :data-invalid="!!error?.fields.parent_id" :data-disabled="disabled">
+    <FieldGroup>
+      <Field :data-invalid="!!fieldErrors.name" :data-disabled="disabled">
+        <FieldLabel for="category-name">{{ t('catalog.category.name') }}</FieldLabel>
+        <Input
+          id="category-name"
+          :model-value="values.name"
+          :disabled="disabled"
+          :aria-invalid="!!fieldErrors.name"
+          @update:model-value="change('name', String($event))"
+        />
+        <FieldError v-if="fieldErrors.name">{{ fieldErrors.name }}</FieldError>
+      </Field>
+      <Field :data-invalid="slugConflict || !!fieldErrors.slug" :data-disabled="disabled">
+        <FieldLabel for="category-slug"
+          >{{ t('catalog.category.slug') }}
+          <Badge v-if="automatic" variant="secondary">{{
+            t('catalog.category.automatic')
+          }}</Badge></FieldLabel
+        >
+        <Input
+          id="category-slug"
+          :model-value="values.slug"
+          :disabled="disabled"
+          :aria-invalid="slugConflict || !!fieldErrors.slug"
+          @update:model-value="change('slug', String($event))"
+        />
+        <FieldDescription>{{
+          t(automatic ? 'catalog.category.slugAutomaticHelp' : 'catalog.category.slugCustomHelp')
+        }}</FieldDescription>
+        <FieldDescription
+          v-if="
+            !automatic &&
+            previewCurrent &&
+            preview.data.value &&
+            values.slug !== preview.data.value.slug
+          "
+          >{{
+            t('catalog.category.slugNormalized', { slug: preview.data.value.slug })
+          }}</FieldDescription
+        >
+        <FieldError v-if="slugConflict">{{
+          t('catalog.category.slugConflict', { slug: preview.data.value?.suggested_slug ?? '' })
+        }}</FieldError>
+        <FieldError v-else-if="fieldErrors.slug">{{ fieldErrors.slug }}</FieldError>
+        <FieldError v-if="previewCurrent && preview.error.value">{{
+          t('catalog.category.slugPreviewError')
+        }}</FieldError>
+      </Field>
+      <Field :data-invalid="!!error?.fields.parent_id" :data-disabled="disabled">
         <FieldLabel for="category-parent">{{ t('catalog.category.parent') }}</FieldLabel>
         <Button
           id="category-parent"
@@ -99,13 +166,15 @@ function choose(id: string | null) {
           @click="open = true"
         >
           <FolderTreeIcon data-icon="inline-start" /><span class="truncate" :title="path">{{
-            values.parent_id ?? t('catalog.category.root')
+            parentPath?.[parentPath.length - 1]?.name ??
+            values.parent_id ??
+            t('catalog.category.root')
           }}</span>
         </Button>
         <FieldDescription>{{ t('catalog.category.parentHelp') }}</FieldDescription>
         <FieldError v-if="error?.fields.parent_id">{{ error.fields.parent_id }}</FieldError>
-      </Field></FieldGroup
-    >
+      </Field>
+    </FieldGroup>
     <div class="flex flex-wrap items-center justify-end gap-3">
       <Button
         v-if="!category"
@@ -121,6 +190,11 @@ function choose(id: string | null) {
       <Button type="submit" :disabled="submitDisabled"
         ><Spinner v-if="isSubmitting" data-icon="inline-start" />{{
           t(isSubmitting ? 'common.saving' : category ? 'common.saveChanges' : 'common.save')
+        }}</Button
+      >
+      <Button v-if="slugConflict" type="button" :disabled="disabled" @click="saveWithSuffix"
+        ><Spinner v-if="isSubmitting" data-icon="inline-start" />{{
+          t('catalog.category.saveWithSuffix')
         }}</Button
       >
     </div>

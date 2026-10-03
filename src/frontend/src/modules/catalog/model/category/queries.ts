@@ -11,13 +11,59 @@ import * as api from '../../api/category/categories';
 import type {
   CategoriesResponse,
   Category,
-  CategoryInput,
+  CategoryUpdateInput,
   CategoryBranchResponse,
+  CategorySlugPreviewInput,
 } from './schemas';
 import { categoryKeys } from './keys';
 export { categoryKeys } from './keys';
 
 const categoryStaleTime = 30_000;
+
+const slugPreviewKeys = ['catalog', 'category-slug-preview'] as const;
+
+export function useCategorySlugPreview(
+  input: MaybeRefOrGetter<CategorySlugPreviewInput>,
+  enabled: MaybeRefOrGetter<boolean>,
+) {
+  return useQuery({
+    queryKey: computed(() => [...slugPreviewKeys, toValue(input)]),
+    queryFn: ({ signal }) => api.previewCategorySlug(toValue(input), signal),
+    enabled: computed(() => toValue(enabled)),
+    staleTime: 0,
+    retry: false,
+  });
+}
+
+function updateCategoryMetadata(client: QueryClient, category: Category) {
+  const replace = (item: Category): Category =>
+    item.id === category.id ? { ...item, name: category.name, slug: category.slug } : item;
+
+  for (const query of client.getQueryCache().findAll({ queryKey: categoryKeys.all })) {
+    const kind = query.queryKey[2];
+
+    if (kind === 'roots' || kind === 'children') {
+      client.setQueryData<CategoriesResponse>(
+        query.queryKey,
+        (data) => data && { categories: data.categories.map(replace) },
+      );
+    } else if (kind === 'detail') {
+      client.setQueryData<Category>(query.queryKey, (data) => data && replace(data));
+    } else if (kind === 'branch') {
+      client.setQueryData<CategoryBranchResponse>(
+        query.queryKey,
+        (data) =>
+          data && {
+            path: data.path.map(replace),
+            levels: data.levels.map((level) => ({
+              ...level,
+              categories: level.categories.map(replace),
+            })),
+          },
+      );
+    }
+  }
+}
 
 export function categoryChildrenOptions(id: string, includeDeleted = false) {
   return queryOptions({
@@ -355,12 +401,6 @@ export function useCategoryTreeRefresh() {
 export function useCategoryMutations() {
   const client = useQueryClient();
 
-  async function saved(category: Category) {
-    await client.cancelQueries({ queryKey: categoryKeys.all });
-    client.setQueryData(categoryKeys.detail(category.id), category);
-    await refreshCategoryHierarchy(client);
-  }
-
   const create = useMutation({
     mutationFn: api.createCategory,
     onSuccess: async (category) => {
@@ -375,12 +415,29 @@ export function useCategoryMutations() {
         refetchType: 'none',
       });
       client.setQueryData(categoryKeys.detail(category.id), category);
+      await client.invalidateQueries({ queryKey: slugPreviewKeys, refetchType: 'none' });
     },
   });
   const update = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: CategoryInput }) =>
+    mutationFn: ({ id, input }: { id: string; input: CategoryUpdateInput }) =>
       api.updateCategory(id, input),
-    onSuccess: saved,
+    onMutate: ({ id }) => ({ previous: client.getQueryData<Category>(categoryKeys.detail(id)) }),
+    onSuccess: async (category, _variables, context) => {
+      await client.cancelQueries({
+        queryKey: categoryKeys.all,
+        predicate: (query) => query.queryKey[2] !== 'products',
+      });
+
+      if (context?.previous && context.previous.parent_id === category.parent_id) {
+        updateCategoryMetadata(client, category);
+        client.setQueryData(categoryKeys.detail(category.id), category);
+      } else {
+        client.setQueryData(categoryKeys.detail(category.id), category);
+        await refreshCategoryHierarchy(client);
+      }
+
+      await client.invalidateQueries({ queryKey: slugPreviewKeys, refetchType: 'none' });
+    },
   });
 
   async function invalidateHierarchy() {

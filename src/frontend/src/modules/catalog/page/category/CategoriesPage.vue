@@ -25,7 +25,7 @@ import { useCategoryPageProducts } from '../../composable/category/useCategoryPa
 import CategoryTreePanel from '../../ui/category/CategoryTreePanel.vue';
 import CategoryDetailsPanel from '../../ui/category/CategoryDetailsPanel.vue';
 import CategoryProductsPanel from '../../ui/category/CategoryProductsPanel.vue';
-import CategoryParentForm from '../../ui/category/CategoryParentForm.vue';
+import CategoryForm from '../../ui/category/CategoryForm.vue';
 import CategoryConfirmDialog from '../../ui/category/CategoryConfirmDialog.vue';
 import CategoryAddProductSheet from '../../ui/category/CategoryAddProductSheet.vue';
 
@@ -217,7 +217,7 @@ function openDetach(product: Product) {
           <h2 id="create-category-title" class="text-base font-semibold">
             {{ t('catalog.category.create') }}
           </h2>
-          <CategoryParentForm
+          <CategoryForm
             key="create"
             :initial-parent="draft.parentId"
             :context-id="id"

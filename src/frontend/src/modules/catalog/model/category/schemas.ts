@@ -2,15 +2,42 @@ import { z } from 'zod';
 
 export const categorySchema = z.object({
   id: z.uuid(),
+  name: z.string(),
+  slug: z.string(),
   parent_id: z.uuid().nullable(),
   has_children: z.boolean(),
   deleted_at: z.iso.datetime({ offset: true }).nullable(),
 });
-export const categoryInputSchema = categorySchema.pick({ parent_id: true });
+export const categoryInputSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'catalog.category.nameRequired')
+    .refine((value) => [...value].length <= 255, 'catalog.category.nameTooLong'),
+  slug: z.string().nullable(),
+  parent_id: z.uuid().nullable(),
+  allow_slug_suffix: z.boolean().optional(),
+});
+export const categoryFormSchema = categoryInputSchema
+  .omit({ allow_slug_suffix: true })
+  .extend({ slug: z.string() });
+export const categorySlugPreviewSchema = z.object({
+  slug: z.string(),
+  available: z.boolean(),
+  suggested_slug: z.string(),
+});
+export type CategorySlugPreview = z.infer<typeof categorySlugPreviewSchema>;
+export interface CategorySlugPreviewInput {
+  name: string;
+  slug?: string | null;
+  exclude_id?: string;
+}
 export const categoryResponseSchema = z.object({ category: categorySchema });
 export const categoriesResponseSchema = z.object({ categories: z.array(categorySchema) });
 export type Category = z.infer<typeof categorySchema>;
 export type CategoryInput = z.infer<typeof categoryInputSchema>;
+export type CategoryUpdateInput = Pick<CategoryInput, 'parent_id'> &
+  Partial<Omit<CategoryInput, 'parent_id'>>;
 export type CategoryResponse = z.infer<typeof categoryResponseSchema>;
 export type CategoriesResponse = z.infer<typeof categoriesResponseSchema>;
 
