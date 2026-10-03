@@ -16,16 +16,20 @@ use App\Core\Catalog\Application\UseCase\Category\GetCategoryBranch\GetCategoryB
 use App\Core\Catalog\Application\UseCase\Category\GetCategoryBranch\GetCategoryBranchQuery;
 use App\Core\Catalog\Application\UseCase\Category\ListCategories\ListCategoriesHandler;
 use App\Core\Catalog\Application\UseCase\Category\ListCategories\ListCategoriesQuery;
-use App\Core\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryCommand;
-use App\Core\Catalog\Application\UseCase\Category\MoveCategory\MoveCategoryHandler;
+use App\Core\Catalog\Application\UseCase\Category\PreviewCategorySlug\PreviewCategorySlugHandler;
+use App\Core\Catalog\Application\UseCase\Category\PreviewCategorySlug\PreviewCategorySlugQuery;
 use App\Core\Catalog\Application\UseCase\Category\RestoreCategory\RestoreCategoryCommand;
 use App\Core\Catalog\Application\UseCase\Category\RestoreCategory\RestoreCategoryHandler;
+use App\Core\Catalog\Application\UseCase\Category\UpdateCategory\UpdateCategoryCommand;
+use App\Core\Catalog\Application\UseCase\Category\UpdateCategory\UpdateCategoryHandler;
 use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Presenter\CategoryPresenter;
 use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\CreateCategoryRequest;
 use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\ListCategoriesRequest;
-use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\MoveCategoryRequest;
+use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\PreviewCategorySlugRequest;
+use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\UpdateCategoryRequest;
 use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Resource\Category as CategoryResource;
 use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Resource\CategoryBranch as CategoryBranchResource;
+use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Resource\CategorySlugPreview;
 use App\Shared\General\Adapter\Symfony\Http\Error\ErrorResponder;
 use App\Shared\General\Adapter\Symfony\Http\OpenApi\ErrorResponse;
 use App\Shared\General\Identity\Id;
@@ -132,53 +136,75 @@ final class CategoryController extends AbstractController
     }
 
     #[Route(path: '/', name: 'create', methods: ['POST'])]
-    #[OA\Post(summary: 'Create a category with an optional parent; an omitted parent creates a root', responses: [
+    #[OA\Post(summary: 'Create a named category with an automatically generated or custom slug', responses: [
         new OA\Response(response: 201, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['category'], properties: [new OA\Property(property: 'category', ref: new Model(type: CategoryResource::class))])),
         new ErrorResponse(response: 400),
         new ErrorResponse(response: 404),
-        new ErrorResponse(response: 409, description: 'The requested parent is the category itself or a descendant, or the existing hierarchy contains a cycle.'),
+        new ErrorResponse(response: 409, description: 'Custom slug already in use, or an invalid category hierarchy.'),
         new ErrorResponse(response: 415),
         new ErrorResponse(response: 422),
         new ErrorResponse(response: 500),
     ])]
-    public function create(CreateCategoryHandler $createCategory, #[MapRequestPayload(acceptFormat: 'json')] ?CreateCategoryRequest $request = null): JsonResponse
+    public function create(CreateCategoryHandler $createCategory, #[MapRequestPayload(acceptFormat: 'json')] CreateCategoryRequest $request): JsonResponse
     {
         try {
-            $parentId = null === $request?->parentId ? null : Id::fromString($request->parentId);
+            $parentId = null === $request->parentId ? null : Id::fromString($request->parentId);
 
-            return $this->json(['category' => $this->presenter->one($createCategory(new CreateCategoryCommand($parentId)))], Response::HTTP_CREATED);
+            return $this->json(['category' => $this->presenter->one($createCategory(new CreateCategoryCommand($request->name, $parentId, $request->slug, $request->allowSlugSuffix)))], Response::HTTP_CREATED);
         } catch (\Throwable $exception) {
             return $this->errors->respond($exception);
         }
     }
 
-    #[Route(path: '/{id}', name: 'move', requirements: ['id' => '(?i:'.Requirement::UUID.')'], methods: ['PATCH'])]
-    #[OA\Patch(summary: 'Move a category; use parent_id null to move it to the root', responses: [
+    #[Route(path: '/{id}', name: 'update', requirements: ['id' => '(?i:'.Requirement::UUID.')'], methods: ['PATCH'])]
+    #[OA\Patch(summary: 'Update category name, slug and parent atomically; use parent_id null for root', responses: [
         new OA\Response(response: 200, description: 'Successful response.', content: new OA\JsonContent(type: 'object', required: ['category'], properties: [new OA\Property(property: 'category', ref: new Model(type: CategoryResource::class))])),
         new ErrorResponse(response: 400),
         new ErrorResponse(response: 404),
-        new ErrorResponse(response: 409, description: 'The requested parent is the category itself or a descendant, or the existing hierarchy contains a cycle.'),
+        new ErrorResponse(response: 409, description: 'Custom slug already in use, or an invalid category hierarchy.'),
         new ErrorResponse(response: 415),
         new ErrorResponse(response: 422),
         new ErrorResponse(response: 500),
     ])]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'))]
-    public function move(
+    public function update(
         string $id,
         #[MapRequestPayload(
             acceptFormat: 'json',
             serializationContext: [AbstractNormalizer::REQUIRE_ALL_PROPERTIES => true],
         )]
-        MoveCategoryRequest $request,
-        MoveCategoryHandler $moveCategoryHandler,
+        UpdateCategoryRequest $request,
+        UpdateCategoryHandler $updateCategory,
     ): JsonResponse {
         try {
-            $category = $moveCategoryHandler(new MoveCategoryCommand(
+            $category = $updateCategory(new UpdateCategoryCommand(
                 Id::fromString($id),
                 null === $request->parentId ? null : Id::fromString($request->parentId),
+                $request->name,
+                $request->slug,
+                $request->allowSlugSuffix,
             ));
 
             return $this->json(['category' => $this->presenter->one($category)]);
+        } catch (\Throwable $exception) {
+            return $this->errors->respond($exception);
+        }
+    }
+
+    #[Route(path: '/slug-preview', name: 'slug_preview', methods: ['GET', 'HEAD'])]
+    #[OA\Get(summary: 'Preview a normalized slug and the first available suggestion without reserving it', responses: [
+        new OA\Response(response: 200, description: 'Slug preview.', content: new OA\JsonContent(ref: new Model(type: CategorySlugPreview::class))),
+        new ErrorResponse(response: 422),
+        new ErrorResponse(response: 500),
+    ])]
+    public function previewSlug(
+        #[MapQueryString(validationFailedStatusCode: Response::HTTP_UNPROCESSABLE_ENTITY)] PreviewCategorySlugRequest $request,
+        PreviewCategorySlugHandler $previewSlug,
+    ): JsonResponse {
+        try {
+            $preview = $previewSlug(new PreviewCategorySlugQuery($request->name, $request->slug, null === $request->excludeId ? null : Id::fromString($request->excludeId)));
+
+            return $this->json(new CategorySlugPreview($preview->slug, $preview->available, $preview->suggestedSlug));
         } catch (\Throwable $exception) {
             return $this->errors->respond($exception);
         }

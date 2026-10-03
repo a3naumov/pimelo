@@ -19,7 +19,7 @@ final class CategoryTest extends TestCase
     public function testParentIdentityCanBeSetAndCleared(): void
     {
         $parentId = Uuid::v7();
-        $category = new Category(Uuid::v7(), parentId: $parentId);
+        $category = new Category(Uuid::v7(), 'Category', Uuid::v7()->toRfc4122(), parentId: $parentId);
 
         self::assertSame($parentId, $category->parentId);
 

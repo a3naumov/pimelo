@@ -15,6 +15,8 @@ final readonly class CategoryPresenter
     {
         return new CategoryResource(
             $view->id,
+            $view->name,
+            $view->slug,
             $view->parentId,
             $view->hasChildren,
             $view->deletedAt,

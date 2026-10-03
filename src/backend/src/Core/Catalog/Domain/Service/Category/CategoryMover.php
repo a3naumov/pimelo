@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Core\Catalog\Domain\Service\Category;
 
 use App\Core\Catalog\Domain\Entity\Category;
+use App\Core\Catalog\Domain\Exception\Category\InvalidCategoryDetailsException;
 use App\Core\Catalog\Domain\Exception\Category\InvalidCategoryHierarchyException;
 use App\Core\Catalog\Domain\Hierarchy\CategoryAncestryInterface;
 
@@ -16,6 +17,7 @@ final readonly class CategoryMover
 
     /**
      * @throws InvalidCategoryHierarchyException
+     * @throws InvalidCategoryDetailsException
      */
     public function move(Category $category, ?Category $parent): Category
     {

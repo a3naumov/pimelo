@@ -20,7 +20,7 @@ final class CategoryBranchTest extends TestCase
 
     public function testSerializesPathAndLevels(): void
     {
-        $category = new Category('01994731-abcd-7000-8000-000000000001', null, false);
+        $category = new Category('01994731-abcd-7000-8000-000000000001', 'Category', 'category', null, false);
         $resource = new CategoryBranch(
             [$category],
             [['parent_id' => null, 'categories' => [$category]]],
@@ -29,6 +29,8 @@ final class CategoryBranchTest extends TestCase
         self::assertSame([
             'path' => [[
                 'id' => $category->id,
+                'name' => $category->name,
+                'slug' => $category->slug,
                 'parent_id' => null,
                 'has_children' => false,
                 'deleted_at' => null,
@@ -37,6 +39,8 @@ final class CategoryBranchTest extends TestCase
                 'parent_id' => null,
                 'categories' => [[
                     'id' => $category->id,
+                    'name' => $category->name,
+                    'slug' => $category->slug,
                     'parent_id' => null,
                     'has_children' => false,
                     'deleted_at' => null,

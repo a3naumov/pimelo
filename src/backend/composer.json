@@ -7,6 +7,7 @@
         "php": "^8.5",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "ext-intl": "*",
         "baldinof/roadrunner-bundle": "^3.4",
         "doctrine/doctrine-bundle": "^3.3",
         "doctrine/doctrine-migrations-bundle": "^4.0",
@@ -25,12 +26,14 @@
         "symfony/property-info": "8.1.*",
         "symfony/runtime": "8.1.*",
         "symfony/serializer": "8.1.*",
+        "symfony/string": "8.1.*",
         "symfony/uid": "8.1.*",
         "symfony/validator": "8.1.*",
         "symfony/yaml": "8.1.*"
     },
     "require-dev": {
         "dama/doctrine-test-bundle": "^8.6",
+        "doctrine/doctrine-fixtures-bundle": "^4.3",
         "friendsofphp/php-cs-fixer": "^3.95",
         "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^13.3",
@@ -83,6 +86,7 @@
             "@putenv XDEBUG_MODE=coverage",
             "@php bin/phpunit --do-not-record-test-run-history --coverage-text"
         ],
+        "fixtures": "@php bin/console doctrine:fixtures:load --env=dev --no-debug --group=demo",
         "format": "@php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php",
         "format:check": "@php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run --diff",
         "auto-scripts": {

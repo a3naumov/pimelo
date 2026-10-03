@@ -23,8 +23,8 @@ final class ProductTest extends TestCase
     public function testWritablePropertiesUpdateSkuAndParent(): void
     {
         $product = new Product(Uuid::v7(), 'original');
-        $category = new Category(Uuid::v7());
-        $parent = new Category(Uuid::v7());
+        $category = new Category(Uuid::v7(), 'Category', Uuid::v7()->toRfc4122());
+        $parent = new Category(Uuid::v7(), 'Category', Uuid::v7()->toRfc4122());
 
         $product->sku = 'updated';
         $category->parentId = $parent->id;
@@ -40,7 +40,7 @@ final class ProductTest extends TestCase
     #[DataProvider('readOnlyProperties')]
     public function testManagedPropertiesRejectExternalWrites(string $entity, string $property): void
     {
-        $object = 'product' === $entity ? new Product(Uuid::v7(), 'product') : new Category(Uuid::v7());
+        $object = 'product' === $entity ? new Product(Uuid::v7(), 'product') : new Category(Uuid::v7(), 'Category', Uuid::v7()->toRfc4122());
 
         $this->expectException(\Error::class);
 

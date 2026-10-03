@@ -26,15 +26,23 @@ final class CategoryMapperTest extends TestCase
     public function testMappingPreservesIdentity(): void
     {
         $id = Uuid::fromString('01994731-abcd-7000-8000-000000000000');
-        $doctrineCategory = new DoctrineCategory($id);
+        $doctrineCategory = new DoctrineCategory($id, 'Category', $id->toRfc4122());
         $mapper = new CategoryMapper();
 
         $category = $mapper->fromDoctrine($doctrineCategory);
         $mapped = $mapper->toDoctrine($category);
 
         self::assertSame($id->toRfc4122(), $category->id->toString());
+        self::assertSame($doctrineCategory->name, $category->name);
+        self::assertSame($doctrineCategory->slug, $category->slug);
+        self::assertSame($category->name, $mapped->name);
+        self::assertSame($category->slug, $mapped->slug);
         self::assertSame($id->toRfc4122(), $mapped->id->toRfc4122());
         self::assertSame($doctrineCategory, $mapper->toDoctrine($category, $doctrineCategory));
+        $renamed = $category->rename('Summer Shoes', 'summer-shoes');
+        self::assertSame($doctrineCategory, $mapper->toDoctrine($renamed, $doctrineCategory));
+        self::assertSame('Summer Shoes', $doctrineCategory->name);
+        self::assertSame('summer-shoes', $doctrineCategory->slug);
         self::assertNull($category->parentId);
         self::assertNull($mapped->deletedAt);
     }
@@ -45,10 +53,10 @@ final class CategoryMapperTest extends TestCase
 
     public function testMappingSetsAndClearsParentWithoutReplacingEntity(): void
     {
-        $parent = new DoctrineCategory(Uuid::v7());
-        $child = new DoctrineCategory(Uuid::v7());
+        $parent = new DoctrineCategory(Uuid::v7(), 'Category', Uuid::v7()->toRfc4122());
+        $child = new DoctrineCategory(Uuid::v7(), 'Category', Uuid::v7()->toRfc4122());
         $mapper = new CategoryMapper();
-        $category = new Category(Id::fromString($child->id->toRfc4122()), Id::fromString($parent->id->toRfc4122()));
+        $category = new Category(Id::fromString($child->id->toRfc4122()), 'Category', Id::fromString($child->id->toRfc4122())->toString(), Id::fromString($parent->id->toRfc4122()));
 
         $mapped = $mapper->toDoctrine($category, $child);
 
@@ -58,7 +66,7 @@ final class CategoryMapperTest extends TestCase
         $mappedParentId = $mapped->parentId;
         $mapper->toDoctrine($category, $child);
         self::assertSame($mappedParentId, $child->parentId);
-        $root = new Category($category->id);
+        $root = new Category($category->id, 'Category', $category->id->toString());
         self::assertSame($child, $mapper->toDoctrine($root, $child));
         self::assertNull($child->parentId);
         self::assertNull($mapper->fromDoctrine($child)->parentId);
@@ -71,8 +79,8 @@ final class CategoryMapperTest extends TestCase
     public function testMappingPreservesDeletionTimestamp(): void
     {
         $deletedAt = new \DateTimeImmutable('2026-09-24T10:00:00+00:00');
-        $existing = new DoctrineCategory(Uuid::v7(), $deletedAt);
-        $category = new Category(Id::fromString($existing->id->toRfc4122()));
+        $existing = new DoctrineCategory(Uuid::v7(), 'Category', Uuid::v7()->toRfc4122(), $deletedAt);
+        $category = new Category(Id::fromString($existing->id->toRfc4122()), 'Category', Id::fromString($existing->id->toRfc4122())->toString());
 
         $mapped = new CategoryMapper()->toDoctrine($category, $existing);
 

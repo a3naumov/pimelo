@@ -7,6 +7,8 @@ namespace App\Core\Catalog\Application\UseCase\Category\MoveCategory;
 use App\Core\Catalog\Application\ReadModel\Projector\CategoryProjector;
 use App\Core\Catalog\Application\ReadModel\View\CategoryView;
 use App\Core\Catalog\Domain\Exception\Category\CategoryNotFoundException;
+use App\Core\Catalog\Domain\Exception\Category\CategorySlugConflictException;
+use App\Core\Catalog\Domain\Exception\Category\InvalidCategoryDetailsException;
 use App\Core\Catalog\Domain\Exception\Category\InvalidCategoryHierarchyException;
 use App\Core\Catalog\Domain\Hierarchy\CategoryHierarchyTransactionInterface;
 use App\Core\Catalog\Domain\Persistence\Repository\CategoryRepositoryInterface;
@@ -24,7 +26,9 @@ final readonly class MoveCategoryHandler
 
     /**
      * @throws CategoryNotFoundException
+     * @throws CategorySlugConflictException
      * @throws InvalidCategoryHierarchyException
+     * @throws InvalidCategoryDetailsException
      */
     public function __invoke(MoveCategoryCommand $command): CategoryView
     {

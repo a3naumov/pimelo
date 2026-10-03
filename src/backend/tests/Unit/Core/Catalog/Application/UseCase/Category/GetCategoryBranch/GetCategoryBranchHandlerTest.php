@@ -35,8 +35,8 @@ final class GetCategoryBranchHandlerTest extends TestCase
 
     public function testReturnsProjectedPathAndSiblingLevels(): void
     {
-        $root = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'));
-        $child = new Category(Id::fromString('01994731-abcd-7000-8000-000000000002'), $root->id);
+        $root = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000001')->toString());
+        $child = new Category(Id::fromString('01994731-abcd-7000-8000-000000000002'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000002')->toString(), $root->id);
         $repository = $this->createMock(CategoryRepositoryInterface::class);
         $repository->expects(self::once())->method('findBranch')->with($child->id, true)
             ->willReturn(new CategoryBranch(

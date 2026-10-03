@@ -8,6 +8,8 @@ final readonly class CategoryView
 {
     public function __construct(
         public string $id,
+        public string $name,
+        public string $slug,
         public ?string $parentId,
         public bool $hasChildren,
         public ?\DateTimeImmutable $deletedAt,

@@ -25,8 +25,8 @@ final class CategoryProjectorTest extends TestCase
 
     public function testProjectsChildrenForAllCategoriesInOneLookup(): void
     {
-        $first = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'));
-        $second = new Category(Id::fromString('01994731-abcd-7000-8000-000000000002'));
+        $first = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000001')->toString());
+        $second = new Category(Id::fromString('01994731-abcd-7000-8000-000000000002'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000002')->toString());
         $repository = $this->createMock(CategoryRepositoryInterface::class);
         $repository->expects(self::once())->method('findParentIdsWithChildren')
             ->with([$first->id, $second->id], true)
@@ -40,6 +40,6 @@ final class CategoryProjectorTest extends TestCase
         self::assertSame($second->id->toString(), $views[1]->id);
         self::assertNull($views[1]->parentId);
         self::assertTrue($views[1]->hasChildren);
-        self::assertSame(['id', 'parentId', 'hasChildren', 'deletedAt'], array_keys(get_object_vars($views[0])));
+        self::assertSame(['id', 'name', 'slug', 'parentId', 'hasChildren', 'deletedAt'], array_keys(get_object_vars($views[0])));
     }
 }

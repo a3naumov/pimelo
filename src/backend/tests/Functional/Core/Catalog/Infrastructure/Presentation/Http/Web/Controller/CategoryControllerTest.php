@@ -21,7 +21,7 @@ use App\Core\Catalog\Infrastructure\Persistence\Doctrine\Transaction\DoctrineCat
 use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Controller\CategoryController;
 use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\CreateCategoryRequest;
 use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\ListCategoriesRequest;
-use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\MoveCategoryRequest;
+use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Request\Category\UpdateCategoryRequest;
 use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Resource\Category as CategoryResource;
 use App\Core\Catalog\Infrastructure\Presentation\Http\Web\Resource\CategoryBranch as CategoryBranchResource;
 use App\Shared\General\Adapter\Symfony\Identity\UuidGenerator;
@@ -43,7 +43,7 @@ use Symfony\Component\Uid\UuidV7;
 #[CoversClass(CategoryController::class)]
 #[UsesClass(CreateCategoryRequest::class)]
 #[UsesClass(ListCategoriesRequest::class)]
-#[UsesClass(MoveCategoryRequest::class)]
+#[UsesClass(UpdateCategoryRequest::class)]
 #[UsesClass(CategoryNotFoundException::class)]
 #[UsesClass(InvalidCategoryHierarchyException::class)]
 #[UsesClass(DoctrineCategory::class)]
@@ -174,9 +174,9 @@ final class CategoryControllerTest extends WebTestCase
         $this->moveCategory($leaf, $child);
 
         $this->client->request('GET', '/web/categories/');
-        self::assertSame(['categories' => [['id' => $root, 'parent_id' => null, 'has_children' => true, 'deleted_at' => null]]], $this->responseData());
+        self::assertSame(['categories' => [['id' => $root, 'name' => 'Category', 'slug' => $this->slugFor($root), 'parent_id' => null, 'has_children' => true, 'deleted_at' => null]]], $this->responseData());
         $this->client->request('GET', '/web/categories/?parent_id='.$root);
-        self::assertSame(['categories' => [['id' => $child, 'parent_id' => $root, 'has_children' => true, 'deleted_at' => null]]], $this->responseData());
+        self::assertSame(['categories' => [['id' => $child, 'name' => 'Category', 'slug' => $this->slugFor($child), 'parent_id' => $root, 'has_children' => true, 'deleted_at' => null]]], $this->responseData());
         $this->client->request('GET', '/web/categories/?parent_id='.strtoupper($root));
         self::assertSame([$child], array_column($this->responseData()['categories'], 'id'));
         $this->client->request('GET', '/web/categories/?parent_id='.$leaf);
@@ -220,7 +220,7 @@ final class CategoryControllerTest extends WebTestCase
     public function testCreatesCategoryWithSelectedParent(): void
     {
         $parent = $this->createCategory();
-        $this->client->jsonRequest('POST', '/web/categories/', ['parent_id' => $parent]);
+        $this->client->jsonRequest('POST', '/web/categories/', ['name' => 'Category', 'parent_id' => $parent]);
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
         $child = $this->responseData()['category']['id'];
         self::assertSame($parent, $this->responseData()['category']['parent_id']);
@@ -229,12 +229,12 @@ final class CategoryControllerTest extends WebTestCase
         $this->client->request('GET', '/web/categories/?parent_id='.$parent);
         self::assertSame([$child], array_column($this->responseData()['categories'], 'id'));
         $this->client->request('GET', '/web/categories/');
-        self::assertSame([['id' => $parent, 'parent_id' => null, 'has_children' => true, 'deleted_at' => null]], $this->responseData()['categories']);
+        self::assertSame([['id' => $parent, 'name' => 'Category', 'slug' => $this->slugFor($parent), 'parent_id' => null, 'has_children' => true, 'deleted_at' => null]], $this->responseData()['categories']);
     }
 
     public function testCreatesRootWithExplicitNullParent(): void
     {
-        $this->client->jsonRequest('POST', '/web/categories/', ['parent_id' => null]);
+        $this->client->jsonRequest('POST', '/web/categories/', ['name' => 'Category', 'parent_id' => null]);
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
         self::assertNull($this->responseData()['category']['parent_id']);
     }
@@ -245,7 +245,7 @@ final class CategoryControllerTest extends WebTestCase
         $this->client->request('DELETE', '/web/categories/'.$deleted);
 
         foreach ([$deleted, '01994731-abcd-7000-8000-000000000000'] as $parent) {
-            $this->client->jsonRequest('POST', '/web/categories/', ['parent_id' => $parent]);
+            $this->client->jsonRequest('POST', '/web/categories/', ['name' => 'Category', 'parent_id' => $parent]);
             self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
             $this->client->request('GET', '/web/categories/');
             self::assertSame([], $this->responseData()['categories']);
@@ -262,7 +262,7 @@ final class CategoryControllerTest extends WebTestCase
     }
 
     // ========================================================================
-    // Lifecycle: omitted request bodies remain compatible with root creation
+    // Lifecycle: named root creation exposes category metadata
     // ========================================================================
 
     public function testCategoryLifecycle(): void
@@ -271,12 +271,12 @@ final class CategoryControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(['categories' => []], $this->responseData());
 
-        $this->client->request('POST', '/web/categories/');
+        $this->client->jsonRequest('POST', '/web/categories/', ['name' => 'Category']);
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
         $data = $this->responseData();
         self::assertSame(['category'], array_keys($data));
-        self::assertSame(['id', 'parent_id', 'has_children', 'deleted_at'], array_keys($data['category']));
+        self::assertSame(['id', 'name', 'slug', 'parent_id', 'has_children', 'deleted_at'], array_keys($data['category']));
         self::assertNull($data['category']['parent_id']);
         $id = $data['category']['id'];
         self::assertInstanceOf(UuidV7::class, Uuid::fromString($id));
@@ -290,7 +290,7 @@ final class CategoryControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
         self::assertSame($data, $this->responseData());
 
-        $this->client->request('POST', '/web/categories/');
+        $this->client->jsonRequest('POST', '/web/categories/', ['name' => 'Category']);
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
         $other = $this->responseData()['category'];
         self::assertNotSame($id, $other['id']);
@@ -340,8 +340,8 @@ final class CategoryControllerTest extends WebTestCase
         $this->assertParent($child, $secondRoot);
         $this->client->request('GET', '/web/categories/');
         self::assertEqualsCanonicalizing([
-            ['id' => $firstRoot, 'parent_id' => null, 'has_children' => false, 'deleted_at' => null],
-            ['id' => $secondRoot, 'parent_id' => null, 'has_children' => true, 'deleted_at' => null],
+            ['id' => $firstRoot, 'name' => 'Category', 'slug' => $this->slugFor($firstRoot), 'parent_id' => null, 'has_children' => false, 'deleted_at' => null],
+            ['id' => $secondRoot, 'name' => 'Category', 'slug' => $this->slugFor($secondRoot), 'parent_id' => null, 'has_children' => true, 'deleted_at' => null],
         ], $this->responseData()['categories']);
 
         $this->moveCategory($child, null);
@@ -406,7 +406,7 @@ final class CategoryControllerTest extends WebTestCase
         $this->assertParent($other, null);
         $this->client->request('GET', '/web/categories/');
         self::assertResponseIsSuccessful();
-        self::assertSame(['categories' => [['id' => $other, 'parent_id' => null, 'has_children' => false, 'deleted_at' => null]]], $this->responseData());
+        self::assertSame(['categories' => [['id' => $other, 'name' => 'Category', 'slug' => $this->slugFor($other), 'parent_id' => null, 'has_children' => false, 'deleted_at' => null]]], $this->responseData());
         self::assertSame(4, (int) self::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne('SELECT COUNT(*) FROM category'));
     }
 
@@ -431,7 +431,7 @@ final class CategoryControllerTest extends WebTestCase
 
         $this->client->jsonRequest('PATCH', '/web/categories/'.strtoupper($category), ['parent_id' => strtoupper($parent)]);
         self::assertResponseStatusCodeSame(Response::HTTP_OK);
-        self::assertSame(['category' => ['id' => $category, 'parent_id' => $parent, 'has_children' => false, 'deleted_at' => null]], $this->responseData());
+        self::assertSame(['category' => ['id' => $category, 'name' => 'Category', 'slug' => $this->slugFor($category), 'parent_id' => $parent, 'has_children' => false, 'deleted_at' => null]], $this->responseData());
     }
 
     // ========================================================================
@@ -489,7 +489,7 @@ final class CategoryControllerTest extends WebTestCase
         $repository = $this->createStub(CategoryRepositoryInterface::class);
 
         if ('findById' !== $operation) {
-            $repository->method('findById')->willReturn(new Category(Id::fromString('01994731-abcd-7000-8000-000000000000')));
+            $repository->method('findById')->willReturn(new Category(Id::fromString('01994731-abcd-7000-8000-000000000000'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000000')->toString()));
         }
         $repository->method($operation)->willThrowException($exception);
         self::getContainer()->set(CategoryRepositoryInterface::class, $repository);
@@ -499,7 +499,7 @@ final class CategoryControllerTest extends WebTestCase
         $logger->pushHandler($handler);
         $this->client->catchExceptions(false);
 
-        $this->client->jsonRequest($method, $path, ['parent_id' => null]);
+        $this->client->jsonRequest($method, $path, ['name' => 'Category', 'parent_id' => null]);
 
         self::assertResponseStatusCodeSame(Response::HTTP_INTERNAL_SERVER_ERROR);
         self::assertResponseHeaderSame('Content-Type', 'application/json');
@@ -516,7 +516,7 @@ final class CategoryControllerTest extends WebTestCase
         self::getContainer()->set(CategoryRepositoryInterface::class, $repository);
         $this->client->catchExceptions(false);
 
-        $this->client->request('POST', '/web/categories/');
+        $this->client->jsonRequest('POST', '/web/categories/', ['name' => 'Category']);
 
         self::assertResponseStatusCodeSame($status);
         self::assertSame(['error' => $exception->getMessage()], $this->responseData());
@@ -648,10 +648,137 @@ final class CategoryControllerTest extends WebTestCase
 
     private function createCategory(): string
     {
-        $this->client->request('POST', '/web/categories/');
+        $this->client->jsonRequest('POST', '/web/categories/', ['name' => 'Category']);
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
 
         return $this->responseData()['category']['id'];
+    }
+
+    // ========================================================================
+    // Metadata: generated slugs, explicit overrides and atomic hierarchy updates
+    // ========================================================================
+
+    public function testCreatesNormalizedNameAndUniqueSlugsIncludingArchivedCategories(): void
+    {
+        $this->client->jsonRequest('POST', '/web/categories/', ['name' => '  Summer Shoes  ']);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $first = $this->responseData()['category'];
+        self::assertSame('Summer Shoes', $first['name']);
+        self::assertSame('summer-shoes', $first['slug']);
+        $this->client->request('DELETE', '/web/categories/'.$first['id']);
+
+        $this->client->jsonRequest('POST', '/web/categories/', ['name' => 'Summer Shoes']);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertSame('summer-shoes-1', $this->responseData()['category']['slug']);
+        $this->client->jsonRequest('POST', '/web/categories/', ['name' => 'Summer Shoes']);
+        self::assertSame('summer-shoes-2', $this->responseData()['category']['slug']);
+    }
+
+    public function testPreviewDoesNotReserveSlugAndExcludesTheCurrentCategory(): void
+    {
+        $this->client->jsonRequest('POST', '/web/categories/', ['name' => 'Shoes']);
+        $id = $this->responseData()['category']['id'];
+        $this->client->request('GET', '/web/categories/slug-preview?name=Shoes');
+        self::assertResponseIsSuccessful();
+        self::assertSame(['slug' => 'shoes', 'available' => false, 'suggested_slug' => 'shoes-1'], $this->responseData());
+
+        $this->client->request('GET', '/web/categories/slug-preview?name=Shoes&exclude_id='.$id);
+        self::assertSame(['slug' => 'shoes', 'available' => true, 'suggested_slug' => 'shoes'], $this->responseData());
+        $this->client->request('GET', '/web/categories/slug-preview?name=Another&slug=Summer%20Shoes');
+        self::assertSame(['slug' => 'summer-shoes', 'available' => true, 'suggested_slug' => 'summer-shoes'], $this->responseData());
+
+        self::assertSame(1, (int) self::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne('SELECT COUNT(*) FROM category'));
+    }
+
+    public function testCustomSlugConflictRequiresExplicitSuffixConsent(): void
+    {
+        $this->client->jsonRequest('POST', '/web/categories/', ['name' => 'Shoes']);
+        $input = ['name' => 'Another category', 'slug' => 'SHOES'];
+
+        $this->client->jsonRequest('POST', '/web/categories/', $input);
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        self::assertStringStartsWith('This category slug is already in use.', $this->responseData()['error']);
+        $this->client->jsonRequest('POST', '/web/categories/', $input + ['allow_slug_suffix' => true]);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertSame('shoes-1', $this->responseData()['category']['slug']);
+    }
+
+    public function testUpdateSavesNameSlugAndParentTogetherAndRenamePreservesSlug(): void
+    {
+        $parent = $this->createCategory();
+        $id = $this->createCategory();
+        $this->client->jsonRequest('PATCH', '/web/categories/'.$id, ['name' => 'Renamed', 'slug' => 'My Custom Slug', 'parent_id' => $parent]);
+        self::assertResponseIsSuccessful();
+        $updated = $this->responseData()['category'];
+        self::assertSame('Renamed', $updated['name']);
+        self::assertSame('my-custom-slug', $updated['slug']);
+        self::assertSame($parent, $updated['parent_id']);
+
+        $this->client->jsonRequest('PATCH', '/web/categories/'.$id, ['name' => 'Another name', 'parent_id' => null]);
+        self::assertResponseIsSuccessful();
+        self::assertSame('my-custom-slug', $this->responseData()['category']['slug']);
+        self::assertSame('Another name', $this->responseData()['category']['name']);
+        self::assertNull($this->responseData()['category']['parent_id']);
+    }
+
+    public function testFailedCombinedUpdatePreservesAllStoredMetadata(): void
+    {
+        $root = $this->createCategory();
+        $child = $this->createCategory();
+        $this->moveCategory($child, $root);
+        $this->client->request('GET', '/web/categories/'.$root);
+        $before = $this->responseData();
+
+        $this->client->jsonRequest('PATCH', '/web/categories/'.$root, ['name' => 'Changed', 'slug' => 'changed', 'parent_id' => $child]);
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        $this->client->request('GET', '/web/categories/'.$root);
+        self::assertSame($before, $this->responseData());
+
+        $this->client->jsonRequest('PATCH', '/web/categories/'.$root, ['name' => 'Changed', 'slug' => $this->slugFor($child), 'parent_id' => null]);
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        $this->client->request('GET', '/web/categories/'.$root);
+        self::assertSame($before, $this->responseData());
+    }
+
+    public function testUpdateAcceptsOwnSlugAndRequiresConsentForAnotherCategorySlug(): void
+    {
+        $first = $this->createCategory();
+        $second = $this->createCategory();
+        $ownSlug = $this->slugFor($second);
+        $this->client->jsonRequest('PATCH', '/web/categories/'.$second, ['name' => 'Renamed', 'slug' => $ownSlug, 'parent_id' => null]);
+        self::assertResponseIsSuccessful();
+        self::assertSame($ownSlug, $this->responseData()['category']['slug']);
+        $input = ['name' => 'Another name', 'slug' => $this->slugFor($first), 'parent_id' => $first];
+
+        $this->client->jsonRequest('PATCH', '/web/categories/'.$second, $input);
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        $this->client->jsonRequest('PATCH', '/web/categories/'.$second, $input + ['allow_slug_suffix' => true]);
+        self::assertResponseIsSuccessful();
+        self::assertSame('Another name', $this->responseData()['category']['name']);
+        self::assertSame($first, $this->responseData()['category']['parent_id']);
+        self::assertNotSame($input['slug'], $this->responseData()['category']['slug']);
+    }
+
+    public function testInvalidUpdatedMetadataLeavesExistingStateUnchanged(): void
+    {
+        $id = $this->createCategory();
+        $this->client->request('GET', '/web/categories/'.$id);
+        $before = $this->responseData();
+
+        foreach ([['name' => ' '], ['name' => str_repeat('a', 256)], ['slug' => '!!!'], ['slug' => ''], ['slug' => str_repeat('a', 256)]] as $input) {
+            $this->client->jsonRequest('PATCH', '/web/categories/'.$id, $input + ['parent_id' => null]);
+            self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+            $this->client->request('GET', '/web/categories/'.$id);
+            self::assertSame($before, $this->responseData());
+        }
+    }
+
+    #[DataProvider('invalidMetadata')]
+    public function testRejectsInvalidCategoryMetadata(array $input): void
+    {
+        $this->client->jsonRequest('POST', '/web/categories/', $input);
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        self::assertSame(0, (int) self::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne('SELECT COUNT(*) FROM category'));
     }
 
     private function moveCategory(string $id, ?string $parentId): void
@@ -677,6 +804,11 @@ final class CategoryControllerTest extends WebTestCase
         return json_decode($this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
     }
 
+    private function slugFor(string $id): string
+    {
+        return self::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne('SELECT slug FROM category WHERE id = ?', [$id]);
+    }
+
     // ========================================================================
     // Data providers
     // ========================================================================
@@ -700,13 +832,13 @@ final class CategoryControllerTest extends WebTestCase
 
     public static function invalidCreationPayloads(): iterable
     {
-        yield 'invalid UUID' => ['{"parent_id":"invalid"}', Response::HTTP_UNPROCESSABLE_ENTITY];
+        yield 'invalid UUID' => ['{"name":"Category","parent_id":"invalid"}', Response::HTTP_UNPROCESSABLE_ENTITY];
 
-        yield 'empty parent' => ['{"parent_id":""}', Response::HTTP_UNPROCESSABLE_ENTITY];
+        yield 'empty parent' => ['{"name":"Category","parent_id":""}', Response::HTTP_UNPROCESSABLE_ENTITY];
 
-        yield 'integer parent' => ['{"parent_id":42}', Response::HTTP_UNPROCESSABLE_ENTITY];
+        yield 'integer parent' => ['{"name":"Category","parent_id":42}', Response::HTTP_UNPROCESSABLE_ENTITY];
 
-        yield 'array parent' => ['{"parent_id":[]}', Response::HTTP_UNPROCESSABLE_ENTITY];
+        yield 'array parent' => ['{"name":"Category","parent_id":[]}', Response::HTTP_UNPROCESSABLE_ENTITY];
 
         yield 'malformed JSON' => ['{"parent_id":', Response::HTTP_BAD_REQUEST];
     }
@@ -735,6 +867,19 @@ final class CategoryControllerTest extends WebTestCase
         yield 'missing category' => [new CategoryNotFoundException('Parent category not found.'), Response::HTTP_NOT_FOUND];
 
         yield 'invalid hierarchy' => [new InvalidCategoryHierarchyException('Invalid category hierarchy.'), Response::HTTP_CONFLICT];
+    }
+
+    public static function invalidMetadata(): iterable
+    {
+        yield 'missing name' => [[]];
+
+        yield 'blank name' => [['name' => '   ']];
+
+        yield 'name too long' => [['name' => str_repeat('я', 256)]];
+
+        yield 'empty normalized custom slug' => [['name' => 'Shoes', 'slug' => '!!!']];
+
+        yield 'custom slug too long' => [['name' => 'Shoes', 'slug' => str_repeat('a', 256)]];
     }
 
     public static function invalidMovePayloads(): iterable

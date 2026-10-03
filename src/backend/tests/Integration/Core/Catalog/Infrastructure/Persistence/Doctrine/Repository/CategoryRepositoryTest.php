@@ -36,7 +36,7 @@ final class CategoryRepositoryTest extends KernelTestCase
         self::bootKernel();
         $repository = self::getContainer()->get(CategoryRepository::class);
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
-        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000000'));
+        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000000'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000000')->toString());
 
         self::assertSame([], $repository->findAll());
         self::assertNull($repository->findById($category->id));
@@ -65,8 +65,8 @@ final class CategoryRepositoryTest extends KernelTestCase
         self::bootKernel();
         $repository = self::getContainer()->get(CategoryRepository::class);
         $manager = self::getContainer()->get(EntityManagerInterface::class);
-        $parent = $repository->save(new Category(new UuidGenerator()->generate()));
-        $child = $repository->save(new Category(new UuidGenerator()->generate(), $parent->id));
+        $parent = $repository->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
+        $child = $repository->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString(), $parent->id));
         $manager->clear();
 
         self::assertEquals($parent->id, $repository->findById($child->id)->parentId);
@@ -83,7 +83,7 @@ final class CategoryRepositoryTest extends KernelTestCase
 
         $this->expectException(CategoryNotFoundException::class);
 
-        $repository->save(new Category(new UuidGenerator()->generate(), new UuidGenerator()->generate()));
+        $repository->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString(), new UuidGenerator()->generate()));
     }
 
     // ========================================================================
@@ -97,11 +97,11 @@ final class CategoryRepositoryTest extends KernelTestCase
         $manager = self::getContainer()->get(EntityManagerInterface::class);
         $connection = $manager->getConnection();
         $generator = new UuidGenerator();
-        $root = $repository->save(new Category($generator->generate()));
-        $child = $repository->save(new Category($generator->generate(), $root->id));
-        $leaf = $repository->save(new Category($generator->generate(), $child->id));
-        $previouslyDeleted = $repository->save(new Category($generator->generate(), $root->id));
-        $other = $repository->save(new Category($generator->generate()));
+        $root = $repository->save(new Category($generator->generate(), 'Category', $generator->generate()->toString()));
+        $child = $repository->save(new Category($generator->generate(), 'Category', $generator->generate()->toString(), $root->id));
+        $leaf = $repository->save(new Category($generator->generate(), 'Category', $generator->generate()->toString(), $child->id));
+        $previouslyDeleted = $repository->save(new Category($generator->generate(), 'Category', $generator->generate()->toString(), $root->id));
+        $other = $repository->save(new Category($generator->generate(), 'Category', $generator->generate()->toString()));
         $repository->delete($previouslyDeleted);
         $connection->update('category', ['deleted_at' => '2020-01-01 00:00:00+00'], ['id' => $previouslyDeleted->id->toString()]);
         $originalTimestamp = $connection->fetchOne('SELECT deleted_at FROM category WHERE id = ?', [$previouslyDeleted->id->toString()]);
@@ -137,7 +137,7 @@ final class CategoryRepositoryTest extends KernelTestCase
         self::bootKernel();
         $repository = self::getContainer()->get(CategoryRepository::class);
         $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
-        $category = $repository->save(new Category(new UuidGenerator()->generate()));
+        $category = $repository->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
         $repository->delete($category);
         $connection->update('category', ['deleted_at' => '2020-01-01 00:00:00+00'], ['id' => $category->id->toString()]);
         $timestamp = $connection->fetchOne('SELECT deleted_at FROM category WHERE id = ?', [$category->id->toString()]);
@@ -151,7 +151,7 @@ final class CategoryRepositoryTest extends KernelTestCase
     {
         self::bootKernel();
         $repository = self::getContainer()->get(CategoryRepository::class);
-        $category = $repository->save(new Category(new UuidGenerator()->generate()));
+        $category = $repository->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
         $repository->delete($category);
 
         $this->expectException(CategoryNotFoundException::class);
@@ -168,12 +168,12 @@ final class CategoryRepositoryTest extends KernelTestCase
     {
         self::bootKernel();
         $repository = self::getContainer()->get(CategoryRepository::class);
-        $parent = $repository->save(new Category(new UuidGenerator()->generate()));
+        $parent = $repository->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
         $repository->delete($parent);
 
         $this->expectException(CategoryNotFoundException::class);
 
-        $repository->save(new Category(new UuidGenerator()->generate(), $parent->id));
+        $repository->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString(), $parent->id));
     }
 
     // ========================================================================
@@ -186,8 +186,8 @@ final class CategoryRepositoryTest extends KernelTestCase
         $repository = self::getContainer()->get(CategoryRepository::class);
         $manager = self::getContainer()->get(EntityManagerInterface::class);
         $connection = $manager->getConnection();
-        $parent = $repository->save(new Category(new UuidGenerator()->generate()));
-        $child = $repository->save(new Category(new UuidGenerator()->generate()));
+        $parent = $repository->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
+        $child = $repository->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
         $id = $child->id->toString();
         $manager->clear();
         $stored = $manager->find(DoctrineCategory::class, $id);
@@ -223,8 +223,8 @@ final class CategoryRepositoryTest extends KernelTestCase
         self::bootKernel();
         $repository = self::getContainer()->get(CategoryRepository::class);
         $manager = self::getContainer()->get(EntityManagerInterface::class);
-        $first = $repository->save(new Category(new UuidGenerator()->generate()));
-        $second = $repository->save(new Category(new UuidGenerator()->generate()));
+        $first = $repository->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
+        $second = $repository->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
         $manager->getConnection()->update('category', ['parent_id' => $first->id->toString()], ['id' => $second->id->toString()]);
 
         self::assertEquals($first->id, $repository->findById($second->id)->parentId);

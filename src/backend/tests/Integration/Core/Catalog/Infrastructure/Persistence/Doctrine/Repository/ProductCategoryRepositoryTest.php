@@ -53,7 +53,7 @@ final class ProductCategoryRepositoryTest extends KernelTestCase
         $this->repository = $container->get(ProductCategoryRepository::class);
         $generator = new UuidGenerator();
         $this->product = $container->get(ProductRepository::class)->save(new Product($generator->generate(), 'product'));
-        $this->category = $container->get(CategoryRepository::class)->save(new Category($generator->generate()));
+        $this->category = $container->get(CategoryRepository::class)->save(new Category($generator->generate(), 'Category', $generator->generate()->toString()));
     }
 
     // ========================================================================
@@ -77,7 +77,7 @@ final class ProductCategoryRepositoryTest extends KernelTestCase
 
     public function testAttachAndDetachAreIdempotentAndPreserveOtherLinks(): void
     {
-        $other = self::getContainer()->get(CategoryRepository::class)->save(new Category(new UuidGenerator()->generate()));
+        $other = self::getContainer()->get(CategoryRepository::class)->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
         $this->repository->attach($this->product, $other);
 
         for ($attempt = 0; $attempt < 2; ++$attempt) {
@@ -104,7 +104,7 @@ final class ProductCategoryRepositoryTest extends KernelTestCase
     public function testMissingEntitiesDoNotCreateRelations(): void
     {
         $missingProduct = new Product(new UuidGenerator()->generate(), 'missing');
-        $missingCategory = new Category(new UuidGenerator()->generate());
+        $missingCategory = new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString());
 
         self::assertSame([], $this->repository->findCategories($missingProduct));
         $this->repository->detach($missingProduct, $this->category);
@@ -117,7 +117,7 @@ final class ProductCategoryRepositoryTest extends KernelTestCase
 
     public function testAttachRejectsAMissingCategoryWithoutCreatingLinks(): void
     {
-        $missingCategory = new Category(new UuidGenerator()->generate());
+        $missingCategory = new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString());
 
         $this->expectException(\LogicException::class);
 

@@ -6,6 +6,7 @@ namespace App\Core\Catalog\Domain\Persistence\Repository;
 
 use App\Core\Catalog\Domain\Entity\Category;
 use App\Core\Catalog\Domain\Exception\Category\CategoryNotFoundException;
+use App\Core\Catalog\Domain\Exception\Category\CategorySlugConflictException;
 use App\Core\Catalog\Domain\Hierarchy\CategoryBranch;
 use App\Shared\General\Identity\Id;
 
@@ -30,8 +31,11 @@ interface CategoryRepositoryInterface
 
     public function findById(Id $id, bool $includeDeleted = false): ?Category;
 
+    public function slugExists(string $slug, ?Id $excludeId = null): bool;
+
     /**
      * @throws CategoryNotFoundException
+     * @throws CategorySlugConflictException
      */
     public function save(Category $category): Category;
 

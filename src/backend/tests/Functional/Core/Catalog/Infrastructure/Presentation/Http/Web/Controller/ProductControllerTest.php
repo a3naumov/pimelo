@@ -440,7 +440,7 @@ final class ProductControllerTest extends WebTestCase
     {
         $product = $this->createProduct('original');
         $categoryId = Uuid::v7()->toRfc4122();
-        $this->connection->insert('category', ['id' => $categoryId, 'created_at' => '2026-01-01 00:00:00+00', 'updated_at' => '2026-01-01 00:00:00+00']);
+        $this->connection->insert('category', ['id' => $categoryId, 'name' => 'Category', 'slug' => $categoryId, 'created_at' => '2026-01-01 00:00:00+00', 'updated_at' => '2026-01-01 00:00:00+00']);
         $this->connection->insert('product_category', ['product_id' => $product->id->toString(), 'category_id' => $categoryId]);
 
         foreach (['changed', 'changed'] as $sku) {
@@ -583,7 +583,7 @@ final class ProductControllerTest extends WebTestCase
         $product = $this->createProduct('reserved');
         $id = $product->id->toString();
         $categoryId = Uuid::v7()->toRfc4122();
-        $this->connection->insert('category', ['id' => $categoryId, 'created_at' => '2026-01-01 00:00:00+00', 'updated_at' => '2026-01-01 00:00:00+00']);
+        $this->connection->insert('category', ['id' => $categoryId, 'name' => 'Category', 'slug' => $categoryId, 'created_at' => '2026-01-01 00:00:00+00', 'updated_at' => '2026-01-01 00:00:00+00']);
         $this->connection->insert('product_category', ['product_id' => $id, 'category_id' => $categoryId]);
         $this->repository->delete($product);
 

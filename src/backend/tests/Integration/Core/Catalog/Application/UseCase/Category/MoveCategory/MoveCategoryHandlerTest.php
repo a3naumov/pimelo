@@ -136,6 +136,6 @@ final class MoveCategoryHandlerTest extends KernelTestCase
 
     private function createCategory(?Category $parent = null): Category
     {
-        return $this->categories->save(new Category(new UuidGenerator()->generate(), $parent?->id));
+        return $this->categories->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString(), $parent?->id));
     }
 }

@@ -35,7 +35,7 @@ final class AttachProductToCategoryHandlerTest extends TestCase
     public function testAttachesExistingProductAndCategory(): void
     {
         $product = new Product(Id::fromString('01994731-abcd-7000-8000-000000000001'), 'SKU');
-        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000002'));
+        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000002'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000002')->toString());
         $products = $this->createStub(ProductRepositoryInterface::class);
         $products->method('findById')->willReturn($product);
         $categories = $this->createStub(CategoryRepositoryInterface::class);
@@ -54,7 +54,7 @@ final class AttachProductToCategoryHandlerTest extends TestCase
     public function testMissingResourceIsRejected(bool $missingProduct, string $exceptionClass): void
     {
         $product = new Product(Id::fromString('01994731-abcd-7000-8000-000000000001'), 'SKU');
-        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000002'));
+        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000002'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000002')->toString());
         $products = $this->createStub(ProductRepositoryInterface::class);
         $products->method('findById')->willReturn($missingProduct ? null : $product);
         $categories = $this->createStub(CategoryRepositoryInterface::class);

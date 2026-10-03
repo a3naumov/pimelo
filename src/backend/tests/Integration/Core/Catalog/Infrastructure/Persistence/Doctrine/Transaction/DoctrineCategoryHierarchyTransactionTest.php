@@ -59,8 +59,8 @@ final class DoctrineCategoryHierarchyTransactionTest extends KernelTestCase
         $transaction = self::getContainer()->get(DoctrineCategoryHierarchyTransaction::class);
         $categories = self::getContainer()->get(CategoryRepository::class);
         $manager = self::getContainer()->get(EntityManagerInterface::class);
-        $root = $categories->save(new Category(new UuidGenerator()->generate()));
-        $child = $categories->save(new Category(new UuidGenerator()->generate()));
+        $root = $categories->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
+        $child = $categories->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
 
         try {
             $transaction->run(static function () use ($categories, $root, $child): void {
@@ -90,8 +90,8 @@ final class DoctrineCategoryHierarchyTransactionTest extends KernelTestCase
         self::bootKernel();
         $transaction = self::getContainer()->get(DoctrineCategoryHierarchyTransaction::class);
         $categories = self::getContainer()->get(CategoryRepository::class);
-        $root = $categories->save(new Category(new UuidGenerator()->generate()));
-        $child = $categories->save(new Category(new UuidGenerator()->generate(), $root->id));
+        $root = $categories->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString()));
+        $child = $categories->save(new Category(new UuidGenerator()->generate(), 'Category', (new UuidGenerator()->generate())->toString(), $root->id));
 
         try {
             $transaction->run(static function () use ($categories, $root, $child): void {

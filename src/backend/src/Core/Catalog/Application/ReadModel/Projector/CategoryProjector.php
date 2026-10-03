@@ -29,6 +29,8 @@ final readonly class CategoryProjector
 
         return array_map(static fn (Category $category): CategoryView => new CategoryView(
             $category->id->toString(),
+            $category->name,
+            $category->slug,
             $category->parentId?->toString(),
             in_array($category->id->toString(), $parents, true),
             $category->deletedAt,

@@ -31,7 +31,7 @@ final class ListCategoriesHandlerTest extends TestCase
 
     public function testListsRoots(): void
     {
-        $root = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'));
+        $root = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000001')->toString());
         $repository = $this->createMock(CategoryRepositoryInterface::class);
         $repository->expects(self::never())->method('findById');
         $repository->expects(self::once())->method('findByParentId')->with(null, false)->willReturn([$root]);
@@ -48,8 +48,8 @@ final class ListCategoriesHandlerTest extends TestCase
 
     public function testListsChildrenOfAnExistingParent(): void
     {
-        $parent = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'));
-        $child = new Category(Id::fromString('01994731-abcd-7000-8000-000000000002'), $parent->id);
+        $parent = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000001')->toString());
+        $child = new Category(Id::fromString('01994731-abcd-7000-8000-000000000002'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000002')->toString(), $parent->id);
         $repository = $this->createMock(CategoryRepositoryInterface::class);
         $repository->expects(self::once())->method('findById')->with($parent->id, true)->willReturn($parent);
         $repository->expects(self::once())->method('findByParentId')->with($parent->id, true)->willReturn([$child]);

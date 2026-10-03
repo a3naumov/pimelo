@@ -19,6 +19,8 @@ final class Version20260921120000 extends AbstractMigration
         $this->addSql(<<<'SQL'
             CREATE TABLE category (
                 id UUID NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                slug VARCHAR(255) NOT NULL,
                 parent_id UUID DEFAULT NULL,
                 deleted_at TIMESTAMP(0) WITH TIME ZONE DEFAULT NULL,
                 created_at TIMESTAMP(0) WITH TIME ZONE NOT NULL,
@@ -28,6 +30,7 @@ final class Version20260921120000 extends AbstractMigration
             SQL);
 
         $this->addSql('CREATE INDEX IDX_64C19C1727ACA70 ON category (parent_id)');
+        $this->addSql('CREATE UNIQUE INDEX UNIQ_CATEGORY_SLUG ON category (slug)');
     }
 
     public function down(Schema $schema): void

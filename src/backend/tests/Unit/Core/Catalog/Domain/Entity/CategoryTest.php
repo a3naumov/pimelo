@@ -24,7 +24,7 @@ final class CategoryTest extends TestCase
     #[DataProvider('readOnlyProperties')]
     public function testPropertiesRejectExternalWrites(string $property): void
     {
-        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'));
+        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000001')->toString());
 
         $this->expectException(\Error::class);
 
@@ -37,7 +37,7 @@ final class CategoryTest extends TestCase
 
     public function testMovePreservesIdentityAndOriginalState(): void
     {
-        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'));
+        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000001')->toString());
         $parentId = Id::fromString('01994731-abcd-7000-8000-000000000002');
 
         $moved = $category->moveTo($parentId);
@@ -45,6 +45,8 @@ final class CategoryTest extends TestCase
 
         self::assertNotSame($category, $moved);
         self::assertTrue($category->id->equals($moved->id));
+        self::assertSame($category->name, $moved->name);
+        self::assertSame($category->slug, $moved->slug);
         self::assertNull($category->parentId);
         self::assertTrue($parentId->equals($moved->parentId));
         self::assertNull($root->parentId);
@@ -62,12 +64,12 @@ final class CategoryTest extends TestCase
         $this->expectException(InvalidCategoryHierarchyException::class);
         $this->expectExceptionMessage('A category cannot be its own parent.');
 
-        new Category($id, Id::fromString(strtoupper($id->toString())));
+        new Category($id, 'Category', $id->toString(), Id::fromString(strtoupper($id->toString())));
     }
 
     public function testMoveRejectsSelfParentWithoutChangingState(): void
     {
-        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'));
+        $category = new Category(Id::fromString('01994731-abcd-7000-8000-000000000001'), 'Category', Id::fromString('01994731-abcd-7000-8000-000000000001')->toString());
 
         try {
             $category->moveTo($category->id);
@@ -84,6 +86,10 @@ final class CategoryTest extends TestCase
     public static function readOnlyProperties(): iterable
     {
         yield 'identity' => ['id'];
+
+        yield 'name' => ['name'];
+
+        yield 'slug' => ['slug'];
 
         yield 'parent identity' => ['parentId'];
     }

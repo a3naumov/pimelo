@@ -79,9 +79,9 @@ final class MoveCategoryHandlerConcurrencyTest extends KernelTestCase
             $repository = new CategoryRepository($registry, new CategoryMapper(), $transaction);
             $handler = new MoveCategoryHandler($repository, new CategoryMover(new DoctrineCategoryAncestry($connection)), $transaction, new CategoryProjector($repository));
             $generator = new UuidGenerator();
-            $first = $repository->save(new Category($generator->generate()));
-            $second = $repository->save(new Category($generator->generate()));
-            $leaf = $repository->save(new Category($generator->generate(), $first->id));
+            $first = $repository->save(new Category($generator->generate(), 'Category', $generator->generate()->toString()));
+            $second = $repository->save(new Category($generator->generate(), 'Category', $generator->generate()->toString()));
+            $leaf = $repository->save(new Category($generator->generate(), 'Category', $generator->generate()->toString(), $first->id));
 
             $connection->beginTransaction();
             $connection->executeStatement('LOCK TABLE category IN SHARE ROW EXCLUSIVE MODE');

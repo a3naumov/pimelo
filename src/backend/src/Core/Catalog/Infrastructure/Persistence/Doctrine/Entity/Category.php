@@ -13,6 +13,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(readOnly: false)]
 #[ORM\Table(name: 'category')]
 #[ORM\Index(name: 'IDX_64C19C1727ACA70', columns: ['parent_id'])]
+#[ORM\UniqueConstraint(name: 'UNIQ_CATEGORY_SLUG', columns: ['slug'])]
 #[Gedmo\SoftDeleteable(fieldName: 'deletedAt', timeAware: false, hardDelete: false)]
 final class Category
 {
@@ -22,6 +23,18 @@ final class Category
         #[ORM\Column(name: 'id', type: UuidType::NAME, nullable: false, insertable: true, updatable: false)]
         public private(set) Uuid $id {
             get => $this->id;
+        },
+
+        #[ORM\Column(name: 'name', type: Types::STRING, length: 255, nullable: false, insertable: true, updatable: true)]
+        public string $name {
+            get => $this->name;
+            set => $value;
+        },
+
+        #[ORM\Column(name: 'slug', type: Types::STRING, length: 255, nullable: false, insertable: true, updatable: true)]
+        public string $slug {
+            get => $this->slug;
+            set => $value;
         },
 
         #[ORM\Column(name: 'deleted_at', type: Types::DATETIMETZ_IMMUTABLE, nullable: true, insertable: true, updatable: true)]

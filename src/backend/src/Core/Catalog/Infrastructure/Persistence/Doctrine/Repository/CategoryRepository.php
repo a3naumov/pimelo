@@ -6,6 +6,8 @@ namespace App\Core\Catalog\Infrastructure\Persistence\Doctrine\Repository;
 
 use App\Core\Catalog\Domain\Entity\Category;
 use App\Core\Catalog\Domain\Exception\Category\CategoryNotFoundException;
+use App\Core\Catalog\Domain\Exception\Category\CategorySlugConflictException;
+use App\Core\Catalog\Domain\Exception\Category\InvalidCategoryDetailsException;
 use App\Core\Catalog\Domain\Exception\Category\InvalidCategoryHierarchyException;
 use App\Core\Catalog\Domain\Hierarchy\CategoryBranch;
 use App\Core\Catalog\Domain\Hierarchy\CategoryHierarchyTransactionInterface;
@@ -15,6 +17,7 @@ use App\Core\Catalog\Infrastructure\Persistence\Doctrine\Mapper\CategoryMapper;
 use App\Shared\General\Identity\Id;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Exception as DbalException;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\Query;
@@ -59,10 +62,10 @@ final class CategoryRepository implements CategoryRepositoryInterface
     {
         $condition = null === $parentId ? 'parent_id IS NULL' : 'parent_id = :parent';
         /**
-         * @var list<array{id: string, parent_id: ?string, deleted_at: ?string}> $rows
+         * @var list<array{id: string, name: string, slug: string, parent_id: ?string, deleted_at: ?string}> $rows
          */
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT id, parent_id, deleted_at FROM category WHERE '.$condition.' AND (:include_deleted = 1 OR deleted_at IS NULL) ORDER BY id ASC',
+            'SELECT id, name, slug, parent_id, deleted_at FROM category WHERE '.$condition.' AND (:include_deleted = 1 OR deleted_at IS NULL) ORDER BY id ASC',
             null === $parentId ? ['include_deleted' => (int) $includeDeleted] : ['parent' => $parentId->toString(), 'include_deleted' => (int) $includeDeleted],
         );
 
@@ -104,7 +107,7 @@ final class CategoryRepository implements CategoryRepositoryInterface
     public function findBranch(Id $id, bool $includeDeleted = false): ?CategoryBranch
     {
         /**
-         * @var list<array{id: string, parent_id: ?string, deleted_at: ?string, depth: ?int, is_cycle: bool}> $rows
+         * @var list<array{id: string, name: string, slug: string, parent_id: ?string, deleted_at: ?string, depth: ?int, is_cycle: bool}> $rows
          */
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(<<<'SQL'
             WITH RECURSIVE ancestors AS (
@@ -116,7 +119,7 @@ final class CategoryRepository implements CategoryRepositoryInterface
                 INNER JOIN ancestors ON category.id = ancestors.parent_id
                 WHERE (:include_deleted = 1 OR category.deleted_at IS NULL)
             ) CYCLE id SET is_cycle USING visited
-            SELECT category.id, category.parent_id, category.deleted_at, ancestors.depth,
+            SELECT category.id, category.name, category.slug, category.parent_id, category.deleted_at, ancestors.depth,
                    COALESCE(ancestors.is_cycle, false) AS is_cycle
             FROM category
             LEFT JOIN ancestors ON ancestors.id = category.id
@@ -179,11 +182,25 @@ final class CategoryRepository implements CategoryRepositoryInterface
     }
 
     /**
+     * @throws DbalException
+     * @throws \LogicException
+     */
+    public function slugExists(string $slug, ?Id $excludeId = null): bool
+    {
+        // Archived categories continue to reserve their slugs.
+        return false !== $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT 1 FROM category WHERE slug = :slug AND (CAST(:exclude_id AS UUID) IS NULL OR id <> CAST(:exclude_id AS UUID)) LIMIT 1',
+            ['slug' => $slug, 'exclude_id' => $excludeId?->toString()],
+        );
+    }
+
+    /**
      * @throws CategoryNotFoundException
      * @throws InvalidCategoryHierarchyException
      * @throws DbalException
      * @throws ORMException
      * @throws \LogicException
+     * @throws CategorySlugConflictException
      */
     public function save(Category $category): Category
     {
@@ -312,9 +329,10 @@ final class CategoryRepository implements CategoryRepositoryInterface
         return $ids;
     }
 
-    /** @param array{id: string, parent_id: ?string, deleted_at: ?string} $row
+    /** @param array{id: string, name: string, slug: string, parent_id: ?string, deleted_at: ?string} $row
      * @throws InvalidCategoryHierarchyException
      * @throws \UnexpectedValueException
+     * @throws InvalidCategoryDetailsException
      */
     private function fromRow(array $row): Category
     {
@@ -326,6 +344,8 @@ final class CategoryRepository implements CategoryRepositoryInterface
 
         return new Category(
             Id::fromString($row['id']),
+            $row['name'],
+            $row['slug'],
             null === $row['parent_id'] ? null : Id::fromString($row['parent_id']),
             $deletedAt,
         );
@@ -337,6 +357,8 @@ final class CategoryRepository implements CategoryRepositoryInterface
      * @throws DbalException
      * @throws ORMException
      * @throws \InvalidArgumentException
+     * @throws CategorySlugConflictException
+     * @throws InvalidCategoryDetailsException
      */
     private function persistCategory(EntityManagerInterface $entityManager, Category $category, ?DoctrineCategory $existing): Category
     {
@@ -354,7 +376,12 @@ final class CategoryRepository implements CategoryRepositoryInterface
 
         $doctrineCategory = $this->categoryMapper->toDoctrine($category, $existing);
         $entityManager->persist($doctrineCategory);
-        $entityManager->flush();
+
+        try {
+            $entityManager->flush();
+        } catch (UniqueConstraintViolationException $exception) {
+            throw new CategorySlugConflictException();
+        }
 
         return $this->categoryMapper->fromDoctrine($doctrineCategory);
     }

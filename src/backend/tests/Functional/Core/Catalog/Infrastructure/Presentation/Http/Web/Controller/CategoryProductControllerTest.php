@@ -83,8 +83,8 @@ final class CategoryProductControllerTest extends WebTestCase
         $categories = $container->get(CategoryRepositoryInterface::class);
         $this->product = $products->save(new Product($generator->generate(), 'first'));
         $this->otherProduct = $products->save(new Product($generator->generate(), 'second'));
-        $this->category = $categories->save(new Category($generator->generate()));
-        $this->otherCategory = $categories->save(new Category($generator->generate()));
+        $this->category = $categories->save(new Category($generator->generate(), 'Category', $generator->generate()->toString()));
+        $this->otherCategory = $categories->save(new Category($generator->generate(), 'Category', $generator->generate()->toString()));
         $container->get(EntityManagerInterface::class)->clear();
     }
 
@@ -194,7 +194,7 @@ final class CategoryProductControllerTest extends WebTestCase
 
         self::assertSame($this->category->id->toString(), $moved->id);
         self::assertSame($this->otherCategory->id->toString(), $moved->parentId);
-        $movedCategory = new Category($this->category->id, $this->otherCategory->id);
+        $movedCategory = $this->category->moveTo($this->otherCategory->id);
         $this->assertCategories($this->product, [$movedCategory]);
         $this->assertCategories($this->otherProduct, [$movedCategory]);
     }

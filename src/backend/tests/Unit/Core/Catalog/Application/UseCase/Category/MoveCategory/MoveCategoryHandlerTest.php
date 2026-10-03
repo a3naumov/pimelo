@@ -132,7 +132,7 @@ final class MoveCategoryHandlerTest extends TestCase
 
     private function category(string $suffix): Category
     {
-        return new Category(Id::fromString('01994731-abcd-7000-8000-00000000000'.$suffix));
+        return new Category(Id::fromString('01994731-abcd-7000-8000-00000000000'.$suffix), 'Category', Id::fromString('01994731-abcd-7000-8000-00000000000'.$suffix)->toString());
     }
 
     // ========================================================================
