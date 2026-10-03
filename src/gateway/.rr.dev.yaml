@@ -7,7 +7,7 @@ server:
 
 http:
   address: 0.0.0.0:8080
-  middleware: [ "static", "gzip" ]
+  middleware: [ "http_metrics", "static", "gzip" ]
   pool:
     debug: true
   uploads:
@@ -26,3 +26,7 @@ logs:
       mode: raw
     metrics:
       level: debug
+
+# Internal only; never publish this port through Caddy or host port mappings.
+metrics:
+  address: "0.0.0.0:9180"

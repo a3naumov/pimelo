@@ -1,0 +1,64 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: roadrunner
+    static_configs:
+      - targets: [gateway:9180, pim:9180, search:9180, media-storage:9180, notifications:9180]
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):.*'
+        target_label: service
+        replacement: '$1'
+
+  - job_name: http-health
+    metrics_path: /probe
+    params:
+      module: [http_health]
+    static_configs:
+      - targets: [http://gateway:8080/]
+        labels: {service: gateway}
+      - targets: [http://pim:8080/]
+        labels: {service: pim}
+      - targets: [http://search:8080/]
+        labels: {service: search}
+      - targets: [http://media-storage:8080/]
+        labels: {service: media-storage}
+      - targets: [http://notifications:8080/]
+        labels: {service: notifications}
+      - targets: [http://gateway:8080/healthcheck]
+        labels: {service: gateway-dependencies}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: monitoring-blackbox-exporter:9115
+
+  - job_name: docker
+    static_configs:
+      - targets: [monitoring-telegraf:9273]
+  - job_name: postgres
+    static_configs:
+      - targets: [monitoring-postgres-exporter:9187]
+  - job_name: redis
+    static_configs:
+      - targets: [monitoring-redis-exporter:9121]
+  - job_name: kafka
+    static_configs:
+      - targets: [monitoring-kafka-exporter:9308]
+  - job_name: prometheus
+    static_configs:
+      - targets: [monitoring-prometheus:9090]
+  - job_name: loki
+    static_configs:
+      - targets: [monitoring-loki:3100]
+  - job_name: alloy
+    static_configs:
+      - targets: [monitoring-alloy:12345]
+  - job_name: blackbox
+    static_configs:
+      - targets: [monitoring-blackbox-exporter:9115]

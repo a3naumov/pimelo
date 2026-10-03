@@ -1,0 +1,66 @@
+logging {
+  level = "warn"
+  format = "json"
+}
+
+discovery.docker "project" {
+  host = "http://monitoring-socket-proxy:2375"
+  refresh_interval = "15s"
+  filter {
+    name = "label"
+    values = ["com.docker.compose.project=" + sys.env("COMPOSE_PROJECT_NAME")]
+  }
+}
+
+discovery.relabel "project_logs" {
+  targets = discovery.docker.project.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label = "project"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label = "service"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex = "/(.*)"
+    target_label = "container"
+  }
+}
+
+// The stream metadata is added by the Docker reader, after service discovery.
+discovery.relabel "streams" {
+  targets = []
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label = "stream"
+  }
+}
+
+loki.source.docker "project" {
+  host = "http://monitoring-socket-proxy:2375"
+  targets = discovery.relabel.project_logs.output
+  labels = { "job" = "docker" }
+  relabel_rules = discovery.relabel.streams.rules
+  forward_to = [loki.process.project.receiver]
+}
+
+loki.process "project" {
+  // Do not backfill Docker's old history beyond Loki's configured retention.
+  stage.drop {
+    older_than = sys.env("LOG_RETENTION")
+    drop_counter_reason = "outside_retention"
+  }
+  stage.label_keep {
+    values = ["job", "project", "service", "container", "stream"]
+  }
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://monitoring-loki:3100/loki/api/v1/push"
+  }
+}

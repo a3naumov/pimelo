@@ -15,7 +15,14 @@ make down  # Stop and remove containers and networks, preserving data volumes
 make help  # Show available commands (also the default for plain make)
 ```
 
-The Makefile selects Compose files and enables all profiles explicitly,
+Monitoring is optional and starts separately with `make monitoring-init` followed
+by `make monitoring`. Grafana is available at `http://localhost:3000`; configure
+its credentials in the ignored root `.env` first. `make monitoring-stop` stops
+only monitoring, while `make down` stops both applications and monitoring without
+deleting their data. See [Monitoring](docker/monitoring/README.md) for setup,
+dashboards, retention, credentials, and verification commands.
+
+The Makefile selects Compose files and enables all application profiles explicitly,
 regardless of `COMPOSE_FILE` and `COMPOSE_PROFILES` in `.env`. Development adds
 `compose.dev.yaml`; production uses only the base and group configurations.
 Both launch commands build images before starting containers in the background.
@@ -45,6 +52,13 @@ build definition, including gateway/Kafka networks and the Kafka data volume.
 | `media-storage` | media-storage, minio | `${COMPOSE_PROJECT_NAME}-media-storage` |
 | `search` | search, opensearch, opensearch-dashboards (dev only) | `${COMPOSE_PROJECT_NAME}-search` |
 | `caddy` | caddy | gateway and frontend networks |
+| `monitoring` (explicit only) | Grafana, Prometheus, Loki, Alloy, Telegraf, socket proxy, PostgreSQL/Redis/Kafka/Blackbox exporters | `${COMPOSE_PROJECT_NAME}-monitoring` |
+
+`compose.monitoring.yaml` is deliberately absent from the default `COMPOSE_FILE`
+and the `make dev/prod` file lists. Its containers use
+`${COMPOSE_PROJECT_NAME}-monitoring-{service}` names within the same Compose project.
+Only the collectors that need application access additionally join `gateway`,
+`pim`, or `kafka`; applications do not depend on monitoring.
 
 PIM, frontend, notifications, media-storage, and search are defined in their
 `compose.<group>.yaml` files. Gateway and Kafka stay in `compose.yaml` with their

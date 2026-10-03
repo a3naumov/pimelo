@@ -9,7 +9,7 @@ http:
   address: 0.0.0.0:8080
   pool:
     debug: false
-  middleware: [ "static", "gzip" ]
+  middleware: [ "http_metrics", "static", "gzip" ]
   uploads:
     forbid: [ ".php", ".exe", ".bat" ]
   static:
@@ -27,11 +27,6 @@ logs:
     metrics:
       level: error
 
-# Uncomment to use metrics integration
-# rpc:
-#   listen: tcp://127.0.0.1:6001
-
-# Uncomment to use metrics integration
-# metrics:
-#   # prometheus client address (path /metrics added automatically)
-#   address: "0.0.0.0:9180"
+# Internal only; never publish this port through Caddy or host port mappings.
+metrics:
+  address: "0.0.0.0:9180"
