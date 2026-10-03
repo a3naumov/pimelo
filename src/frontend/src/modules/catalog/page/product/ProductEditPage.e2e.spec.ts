@@ -6,10 +6,10 @@ const product = { id, sku: 'SKU-01', deleted_at: null };
 test.describe('Editing a product', () => {
   test('loads the SKU, saves in place, and refreshes the list', async ({ page }) => {
     let product = { id, sku: 'ORIGINAL', deleted_at: null };
-    await page.route('**/web/products/', (route) =>
+    await page.route('**/pim/web/products/', (route) =>
       route.fulfill({ json: { products: [product] } }),
     );
-    await page.route(`**/web/products/${id}{,?*}`, async (route) => {
+    await page.route(`**/pim/web/products/${id}{,?*}`, async (route) => {
       if (route.request().method() === 'PATCH') {
         product = { id, sku: route.request().postDataJSON().sku as string, deleted_at: null };
       }
@@ -42,7 +42,7 @@ test.describe('Editing a product', () => {
   });
 
   test('preserves the draft when saving fails', async ({ page }) => {
-    await page.route(`**/web/products/${id}{,?*}`, (route) =>
+    await page.route(`**/pim/web/products/${id}{,?*}`, (route) =>
       route.request().method() === 'PATCH'
         ? route.fulfill({ status: 409, json: { error: 'A product with this SKU already exists.' } })
         : route.fulfill({ json: { product: { id, sku: 'ORIGINAL', deleted_at: null } } }),
@@ -62,17 +62,19 @@ test.describe('Editing a product', () => {
 
 test.describe('Product editor navigation and deletion', () => {
   test('redirects the old product URL to the editor', async ({ page }) => {
-    await page.route(`**/web/products/${id}{,?*}`, (route) => route.fulfill({ json: { product } }));
+    await page.route(`**/pim/web/products/${id}{,?*}`, (route) =>
+      route.fulfill({ json: { product } }),
+    );
     await page.goto(`/products/${id}?source=bookmark#product-sku`);
     await expect(page).toHaveURL(`/products/${id}/edit?source=bookmark#product-sku`);
     await expect(page.getByRole('textbox', { name: 'SKU', exact: true })).toHaveValue(product.sku);
   });
 
   test('opens the editor through the SKU link and survives reloading', async ({ page }) => {
-    await page.route('**/web/products/', (route) =>
+    await page.route('**/pim/web/products/', (route) =>
       route.fulfill({ json: { products: [product] } }),
     );
-    await page.route(`**/web/products/${product.id}{,?*}`, (route) =>
+    await page.route(`**/pim/web/products/${product.id}{,?*}`, (route) =>
       route.fulfill({ json: { product } }),
     );
     await page.goto('/products');
@@ -85,7 +87,7 @@ test.describe('Product editor navigation and deletion', () => {
   });
 
   test('shows not found for a missing product', async ({ page }) => {
-    await page.route(`**/web/products/${product.id}{,?*}`, (route) =>
+    await page.route(`**/pim/web/products/${product.id}{,?*}`, (route) =>
       route.fulfill({
         status: 404,
         json: { error: 'Product not found.' },
@@ -98,12 +100,12 @@ test.describe('Product editor navigation and deletion', () => {
   });
 
   test('deletes from the editor and returns to the refreshed list', async ({ page }) => {
-    await page.route(`**/web/products/${product.id}{,?*}`, (route) =>
+    await page.route(`**/pim/web/products/${product.id}{,?*}`, (route) =>
       route.request().method() === 'DELETE'
         ? route.fulfill({ status: 204 })
         : route.fulfill({ json: { product } }),
     );
-    await page.route('**/web/products/', (route) => route.fulfill({ json: { products: [] } }));
+    await page.route('**/pim/web/products/', (route) => route.fulfill({ json: { products: [] } }));
     await page.goto(`/products/${product.id}/edit`);
     await page.getByRole('button', { name: 'Delete product' }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Delete product' }).click();
@@ -116,10 +118,10 @@ test.describe('Editing deleted products', () => {
   const archived = { ...product, deleted_at: '2026-09-25T10:00:00+00:00' };
 
   test('shows saved values in disabled fields and restores in place', async ({ page }) => {
-    await page.route(`**/web/products/${product.id}?include_deleted=1`, (route) =>
+    await page.route(`**/pim/web/products/${product.id}?include_deleted=1`, (route) =>
       route.fulfill({ json: { product: archived } }),
     );
-    await page.route(`**/web/products/${product.id}/restore`, (route) =>
+    await page.route(`**/pim/web/products/${product.id}/restore`, (route) =>
       route.fulfill({ json: { product } }),
     );
     await page.goto(`/products/${product.id}/edit`);
@@ -143,13 +145,13 @@ test.describe('Editing deleted products', () => {
   });
 
   test('returns to the deleted list after permanent deletion', async ({ page }) => {
-    await page.route(`**/web/products/${product.id}?include_deleted=1`, (route) =>
+    await page.route(`**/pim/web/products/${product.id}?include_deleted=1`, (route) =>
       route.fulfill({ json: { product: archived } }),
     );
-    await page.route(`**/web/products/${product.id}/permanent`, (route) =>
+    await page.route(`**/pim/web/products/${product.id}/permanent`, (route) =>
       route.fulfill({ status: 204 }),
     );
-    await page.route('**/web/products/?status=deleted', (route) =>
+    await page.route('**/pim/web/products/?status=deleted', (route) =>
       route.fulfill({ json: { products: [] } }),
     );
     await page.goto(`/products/${product.id}/edit`);

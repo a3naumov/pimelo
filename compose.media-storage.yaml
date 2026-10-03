@@ -18,6 +18,8 @@ services:
       APP_DEBUG: "0"
     networks:
       - media-storage
+      - gateway
+      - kafka
 
   minio:
     profiles: [media-storage]

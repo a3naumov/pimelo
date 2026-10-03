@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 
 COMPOSE_BASE_FILES := compose.yaml \
-	compose.backend.yaml \
+	compose.pim.yaml \
 	compose.frontend.yaml \
 	compose.media-storage.yaml \
 	compose.notifications.yaml \

@@ -11,7 +11,7 @@ test.describe('Creating a product', () => {
       release = resolve;
     });
     const writes: unknown[] = [];
-    await page.route('**/web/products/', async (route) => {
+    await page.route('**/pim/web/products/', async (route) => {
       if (route.request().method() === 'GET') {
         return route.fulfill({ json: { products } });
       }

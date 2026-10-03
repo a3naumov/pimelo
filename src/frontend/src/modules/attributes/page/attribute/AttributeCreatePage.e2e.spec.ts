@@ -11,7 +11,7 @@ test.describe('Creating an attribute', () => {
       release = resolve;
     });
     const writes: unknown[] = [];
-    await page.route('**/web/attributes/', async (route) => {
+    await page.route('**/pim/web/attributes/', async (route) => {
       if (route.request().method() === 'GET') {
         return route.fulfill({ json: { attributes } });
       }

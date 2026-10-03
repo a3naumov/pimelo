@@ -7,6 +7,6 @@ declare global {
   }
 
   interface ImportMetaEnv {
-    readonly VITE_BACKEND_URL: string;
+    readonly VITE_GATEWAY_URL: string;
   }
 }

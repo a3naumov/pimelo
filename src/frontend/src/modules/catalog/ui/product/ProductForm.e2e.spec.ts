@@ -7,7 +7,7 @@ test.describe('Product form changes', () => {
     page,
   }) => {
     const writes: string[] = [];
-    await page.route(`**/web/products/${id}{,?*}`, (route) => {
+    await page.route(`**/pim/web/products/${id}{,?*}`, (route) => {
       if (route.request().method() === 'PATCH') {
         writes.push(route.request().method());
       }
@@ -37,7 +37,7 @@ test.describe('Product form changes', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route(`**/web/products/${id}{,?*}`, async (route) => {
+    await page.route(`**/pim/web/products/${id}{,?*}`, async (route) => {
       if (route.request().method() === 'PATCH') {
         writes++;
         await gate;
@@ -69,7 +69,7 @@ test.describe('Product form changes', () => {
 test.describe('Product form validation', () => {
   test('rejects blank and oversized SKUs before submitting', async ({ page }) => {
     const requests: string[] = [];
-    await page.route('**/web/products/', (route) => {
+    await page.route('**/pim/web/products/', (route) => {
       requests.push(route.request().method());
 
       return route.abort();
@@ -92,7 +92,7 @@ test.describe('Product form validation', () => {
 
   for (const { status, message } of failures) {
     test(`preserves input after a ${status || 'network'} failure`, async ({ page }) => {
-      await page.route('**/web/products/', (route) =>
+      await page.route('**/pim/web/products/', (route) =>
         status === 0
           ? route.abort()
           : route.fulfill({

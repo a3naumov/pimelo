@@ -1,0 +1,55 @@
+services:
+  pim:
+    profiles: [pim]
+    container_name: ${COMPOSE_PROJECT_NAME}-pim
+    build:
+      context: ./docker/pim
+      target: production
+      additional_contexts:
+        php_roadrunner: service:php-roadrunner
+    image: ${COMPOSE_PROJECT_NAME}-pim
+    volumes:
+      - type: bind
+        source: ./src/pim
+        target: /app
+    working_dir: /app
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - pim
+      - gateway
+      - kafka
+
+  postgres:
+    profiles: [pim]
+    container_name: ${COMPOSE_PROJECT_NAME}-postgres
+    image: postgres:18.4-alpine3.24
+    environment:
+      POSTGRES_USER: ${SERVICE_POSTGRES_USER:-dbuser}
+      POSTGRES_PASSWORD: ${SERVICE_POSTGRES_PASSWORD:-dbpassword}
+      POSTGRES_DB: ${SERVICE_POSTGRES_DB:-appdb}
+    volumes:
+      - type: volume
+        source: postgres_data
+        target: /var/lib/postgresql
+    networks:
+      - pim
+
+  redis:
+    profiles: [pim]
+    container_name: ${COMPOSE_PROJECT_NAME}-redis
+    image: redis:8.10.0-alpine3.23
+    networks:
+      - pim
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  pim:
+    name: ${COMPOSE_PROJECT_NAME}-pim
+    driver: bridge

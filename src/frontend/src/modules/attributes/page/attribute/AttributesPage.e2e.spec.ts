@@ -11,7 +11,7 @@ const attribute = {
 test.describe('Attribute list states', () => {
   test('searches names and IDs and recovers from no matching attributes', async ({ page }) => {
     const other = { ...attribute, id: '0195f582-9762-7c2a-9228-4060489e06d9', name: 'SECOND' };
-    await page.route('**/web/attributes/', (route) =>
+    await page.route('**/pim/web/attributes/', (route) =>
       route.fulfill({ json: { attributes: [attribute, other] } }),
     );
     await page.goto('/attributes');
@@ -35,7 +35,7 @@ test.describe('Attribute list states', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route('**/web/attributes/', async (route) => {
+    await page.route('**/pim/web/attributes/', async (route) => {
       await gate;
       await route.fulfill({ json: { attributes: [attribute] } });
     });
@@ -48,7 +48,9 @@ test.describe('Attribute list states', () => {
   });
 
   test('offers creation when the attribute list is empty', async ({ page }) => {
-    await page.route('**/web/attributes/', (route) => route.fulfill({ json: { attributes: [] } }));
+    await page.route('**/pim/web/attributes/', (route) =>
+      route.fulfill({ json: { attributes: [] } }),
+    );
     await page.goto('/attributes');
     await expect(page.getByText('No attributes yet')).toBeVisible();
     await page.getByRole('link', { name: 'Create attribute' }).click();
@@ -57,7 +59,7 @@ test.describe('Attribute list states', () => {
 
   test('retries a failed list request', async ({ page }) => {
     let failed = true;
-    await page.route('**/web/attributes/', (route) =>
+    await page.route('**/pim/web/attributes/', (route) =>
       route.fulfill(
         failed
           ? { status: 503, json: { error: 'Internal failure' } }
@@ -73,7 +75,7 @@ test.describe('Attribute list states', () => {
   });
 
   test('reports malformed successful responses', async ({ page }) => {
-    await page.route('**/web/attributes/', (route) =>
+    await page.route('**/pim/web/attributes/', (route) =>
       route.fulfill({ json: { attributes: [{}] } }),
     );
     await page.goto('/attributes');
@@ -86,8 +88,8 @@ test.describe('Deleting attributes from the list', () => {
   test('requires confirmation and preserves the dialog after failure', async ({ page }) => {
     let attributes = [attribute];
     let failures = 1;
-    await page.route('**/web/attributes/', (route) => route.fulfill({ json: { attributes } }));
-    await page.route(`**/web/attributes/${attribute.id}{,?*}`, async (route) => {
+    await page.route('**/pim/web/attributes/', (route) => route.fulfill({ json: { attributes } }));
+    await page.route(`**/pim/web/attributes/${attribute.id}{,?*}`, async (route) => {
       if (route.request().method() !== 'DELETE') {
         return route.abort();
       }
@@ -127,7 +129,7 @@ test.describe('Deleted attribute list', () => {
   };
 
   test('persists the filter across reload and browser Back', async ({ page }) => {
-    await page.route('**/web/attributes/**', (route) =>
+    await page.route('**/pim/web/attributes/**', (route) =>
       route.fulfill({
         json: {
           attributes:
@@ -164,7 +166,7 @@ test.describe('Deleted attribute list', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route('**/web/attributes/**', (route) =>
+    await page.route('**/pim/web/attributes/**', (route) =>
       route.fulfill({
         json: {
           attributes:
@@ -185,7 +187,7 @@ test.describe('Deleted attribute list', () => {
         },
       }),
     );
-    await page.route(`**/web/attributes/${archived.id}/restore`, async (route) => {
+    await page.route(`**/pim/web/attributes/${archived.id}/restore`, async (route) => {
       if (failures-- > 0) {
         return route.fulfill({ status: 503, json: { error: 'Failure' } });
       }
@@ -240,10 +242,10 @@ test.describe('Deleted attribute list', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route('**/web/attributes/**', (route) =>
+    await page.route('**/pim/web/attributes/**', (route) =>
       route.fulfill({ json: { attributes: removed ? [] : [archived] } }),
     );
-    await page.route(`**/web/attributes/${archived.id}/permanent`, async (route) => {
+    await page.route(`**/pim/web/attributes/${archived.id}/permanent`, async (route) => {
       attempts++;
 
       if (attempts === 1) {

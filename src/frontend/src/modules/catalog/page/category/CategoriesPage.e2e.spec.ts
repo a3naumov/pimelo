@@ -41,9 +41,9 @@ async function mockCatalog(page: Page) {
     failWrite: false,
     writes: [] as { method: string; path: string; body: string | null }[],
   };
-  await page.route('**/web/**', async (route) => {
+  await page.route('**/pim/web/**', async (route) => {
     const url = new URL(route.request().url());
-    const path = url.pathname.replace('/web', '');
+    const path = url.pathname.replace('/pim/web', '');
     const parentId = url.searchParams.get('parent_id');
     const readPath = path === '/categories/' && parentId ? childrenPath(parentId) : path;
     const includeDeleted = url.searchParams.get('include_deleted') === '1';
@@ -1159,7 +1159,7 @@ test('returns from a deep reload to roots and refreshes without aborted reads', 
   state.reads = [];
   const aborted: string[] = [];
   page.on('requestfailed', (request) => {
-    if (request.url().includes('/web/')) {
+    if (request.url().includes('/pim/web/')) {
       aborted.push(request.url());
     }
   });

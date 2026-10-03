@@ -18,6 +18,8 @@ services:
       APP_DEBUG: "0"
     networks:
       - notifications
+      - gateway
+      - kafka
 
   centrifugo:
     profiles: [notifications]

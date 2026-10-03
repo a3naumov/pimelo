@@ -5,7 +5,7 @@ const product = { id: '0195f582-9762-7c2a-9228-4060489e06d8', sku: 'SKU-01', del
 test.describe('Product list states', () => {
   test('searches SKUs and IDs and recovers from no matching products', async ({ page }) => {
     const other = { ...product, id: '0195f582-9762-7c2a-9228-4060489e06d9', sku: 'SECOND' };
-    await page.route('**/web/products/', (route) =>
+    await page.route('**/pim/web/products/', (route) =>
       route.fulfill({ json: { products: [product, other] } }),
     );
     await page.goto('/products');
@@ -29,7 +29,7 @@ test.describe('Product list states', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route('**/web/products/', async (route) => {
+    await page.route('**/pim/web/products/', async (route) => {
       await gate;
       await route.fulfill({ json: { products: [product] } });
     });
@@ -42,7 +42,7 @@ test.describe('Product list states', () => {
   });
 
   test('offers creation when the catalog is empty', async ({ page }) => {
-    await page.route('**/web/products/', (route) => route.fulfill({ json: { products: [] } }));
+    await page.route('**/pim/web/products/', (route) => route.fulfill({ json: { products: [] } }));
     await page.goto('/products');
     await expect(page.getByText('No products yet')).toBeVisible();
     await page.getByRole('link', { name: 'Create product' }).click();
@@ -51,7 +51,7 @@ test.describe('Product list states', () => {
 
   test('retries a failed list request', async ({ page }) => {
     let failed = true;
-    await page.route('**/web/products/', (route) =>
+    await page.route('**/pim/web/products/', (route) =>
       route.fulfill(
         failed
           ? { status: 503, json: { error: 'Internal failure' } }
@@ -67,7 +67,9 @@ test.describe('Product list states', () => {
   });
 
   test('reports malformed successful responses', async ({ page }) => {
-    await page.route('**/web/products/', (route) => route.fulfill({ json: { products: [{}] } }));
+    await page.route('**/pim/web/products/', (route) =>
+      route.fulfill({ json: { products: [{}] } }),
+    );
     await page.goto('/products');
     await expect(page.getByRole('alert')).toContainText('invalid response');
     await expect(page.getByRole('table')).toHaveCount(0);
@@ -78,8 +80,8 @@ test.describe('Deleting products from the list', () => {
   test('requires confirmation and preserves the dialog after failure', async ({ page }) => {
     let products = [product];
     let failures = 1;
-    await page.route('**/web/products/', (route) => route.fulfill({ json: { products } }));
-    await page.route(`**/web/products/${product.id}{,?*}`, async (route) => {
+    await page.route('**/pim/web/products/', (route) => route.fulfill({ json: { products } }));
+    await page.route(`**/pim/web/products/${product.id}{,?*}`, async (route) => {
       if (route.request().method() !== 'DELETE') {
         return route.abort();
       }
@@ -117,7 +119,7 @@ test.describe('Deleted product list', () => {
   };
 
   test('persists the filter across reload and browser Back', async ({ page }) => {
-    await page.route('**/web/products/**', (route) =>
+    await page.route('**/pim/web/products/**', (route) =>
       route.fulfill({
         json: {
           products:
@@ -154,7 +156,7 @@ test.describe('Deleted product list', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route('**/web/products/**', (route) =>
+    await page.route('**/pim/web/products/**', (route) =>
       route.fulfill({
         json: {
           products:
@@ -168,7 +170,7 @@ test.describe('Deleted product list', () => {
         },
       }),
     );
-    await page.route(`**/web/products/${archived.id}/restore`, async (route) => {
+    await page.route(`**/pim/web/products/${archived.id}/restore`, async (route) => {
       if (failures-- > 0) {
         return route.fulfill({ status: 503, json: { error: 'Failure' } });
       }
@@ -214,10 +216,10 @@ test.describe('Deleted product list', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route('**/web/products/**', (route) =>
+    await page.route('**/pim/web/products/**', (route) =>
       route.fulfill({ json: { products: removed ? [] : [archived] } }),
     );
-    await page.route(`**/web/products/${archived.id}/permanent`, async (route) => {
+    await page.route(`**/pim/web/products/${archived.id}/permanent`, async (route) => {
       attempts++;
 
       if (attempts === 1) {

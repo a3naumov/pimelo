@@ -18,10 +18,10 @@ test.describe('Editing an attribute', () => {
       updated_at: '2026-09-30T10:00:00+00:00',
       deleted_at: null,
     };
-    await page.route('**/web/attributes/', (route) =>
+    await page.route('**/pim/web/attributes/', (route) =>
       route.fulfill({ json: { attributes: [attribute] } }),
     );
-    await page.route(`**/web/attributes/${id}{,?*}`, async (route) => {
+    await page.route(`**/pim/web/attributes/${id}{,?*}`, async (route) => {
       if (route.request().method() === 'PATCH') {
         attribute = {
           id,
@@ -62,7 +62,7 @@ test.describe('Editing an attribute', () => {
   });
 
   test('preserves the draft when saving fails', async ({ page }) => {
-    await page.route(`**/web/attributes/${id}{,?*}`, (route) =>
+    await page.route(`**/pim/web/attributes/${id}{,?*}`, (route) =>
       route.request().method() === 'PATCH'
         ? route.fulfill({ status: 500, json: { error: 'Failure' } })
         : route.fulfill({
@@ -94,10 +94,10 @@ test.describe('Editing an attribute', () => {
 
 test.describe('Attribute editor navigation and deletion', () => {
   test('opens the editor through the name link and survives reloading', async ({ page }) => {
-    await page.route('**/web/attributes/', (route) =>
+    await page.route('**/pim/web/attributes/', (route) =>
       route.fulfill({ json: { attributes: [attribute] } }),
     );
-    await page.route(`**/web/attributes/${attribute.id}{,?*}`, (route) =>
+    await page.route(`**/pim/web/attributes/${attribute.id}{,?*}`, (route) =>
       route.fulfill({ json: { attribute } }),
     );
     await page.goto('/attributes');
@@ -118,7 +118,7 @@ test.describe('Attribute editor navigation and deletion', () => {
   });
 
   test('shows not found for a missing attribute', async ({ page }) => {
-    await page.route(`**/web/attributes/${attribute.id}{,?*}`, (route) =>
+    await page.route(`**/pim/web/attributes/${attribute.id}{,?*}`, (route) =>
       route.fulfill({
         status: 404,
         json: { error: 'Attribute not found.' },
@@ -131,12 +131,14 @@ test.describe('Attribute editor navigation and deletion', () => {
   });
 
   test('deletes from the editor and returns to the refreshed list', async ({ page }) => {
-    await page.route(`**/web/attributes/${attribute.id}{,?*}`, (route) =>
+    await page.route(`**/pim/web/attributes/${attribute.id}{,?*}`, (route) =>
       route.request().method() === 'DELETE'
         ? route.fulfill({ status: 204 })
         : route.fulfill({ json: { attribute } }),
     );
-    await page.route('**/web/attributes/', (route) => route.fulfill({ json: { attributes: [] } }));
+    await page.route('**/pim/web/attributes/', (route) =>
+      route.fulfill({ json: { attributes: [] } }),
+    );
     await page.goto(`/attributes/${attribute.id}/edit`);
     await page.getByRole('button', { name: 'Delete attribute' }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Delete attribute' }).click();
@@ -154,10 +156,10 @@ test.describe('Editing deleted attributes', () => {
   };
 
   test('shows saved values in disabled fields and restores in place', async ({ page }) => {
-    await page.route(`**/web/attributes/${attribute.id}?include_deleted=1`, (route) =>
+    await page.route(`**/pim/web/attributes/${attribute.id}?include_deleted=1`, (route) =>
       route.fulfill({ json: { attribute: archived } }),
     );
-    await page.route(`**/web/attributes/${attribute.id}/restore`, (route) =>
+    await page.route(`**/pim/web/attributes/${attribute.id}/restore`, (route) =>
       route.fulfill({ json: { attribute } }),
     );
     await page.goto(`/attributes/${attribute.id}/edit`);
@@ -183,13 +185,13 @@ test.describe('Editing deleted attributes', () => {
   });
 
   test('returns to the deleted list after permanent deletion', async ({ page }) => {
-    await page.route(`**/web/attributes/${attribute.id}?include_deleted=1`, (route) =>
+    await page.route(`**/pim/web/attributes/${attribute.id}?include_deleted=1`, (route) =>
       route.fulfill({ json: { attribute: archived } }),
     );
-    await page.route(`**/web/attributes/${attribute.id}/permanent`, (route) =>
+    await page.route(`**/pim/web/attributes/${attribute.id}/permanent`, (route) =>
       route.fulfill({ status: 204 }),
     );
-    await page.route('**/web/attributes/?status=deleted', (route) =>
+    await page.route('**/pim/web/attributes/?status=deleted', (route) =>
       route.fulfill({ json: { attributes: [] } }),
     );
     await page.goto(`/attributes/${attribute.id}/edit`);

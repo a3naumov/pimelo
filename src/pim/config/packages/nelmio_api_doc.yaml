@@ -1,0 +1,20 @@
+nelmio_api_doc:
+    type_info: true
+    documentation:
+        openapi: 3.0.3
+        info:
+            title: Pimelo PIM Web API
+            description: Product catalog, category hierarchy, product-category relationships and shared attributes.
+            version: 1.0.0
+        servers:
+            - url: /pim
+    areas:
+        web:
+            path_patterns:
+                - '^/web/(?!api-docs\.json$)'
+                - '^/$'
+        # Nelmio requires a default area; keep it identical to Web, not all routes.
+        default:
+            path_patterns:
+                - '^/web/(?!api-docs\.json$)'
+                - '^/$'

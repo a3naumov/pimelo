@@ -1,6 +1,6 @@
 # Pimelo frontend
 
-## Backend integration
+## Gateway integration
 
 Create the local environment file from the repository root before starting Vite:
 
@@ -10,48 +10,49 @@ cp src/frontend/.env.example src/frontend/.env
 
 The `.env` file is ignored by Git; `.env.example` provides the shared defaults.
 
-The browser sends requests directly to Caddy, which forwards `/web` to the backend.
+The browser sends requests to Caddy, which forwards `/pim/web` to gateway and then
+to PIM's internal `/web` routes.
 Vite only serves the frontend; neither development nor preview proxies API requests.
 Axios uses a 15-second timeout; TanStack Query supplies cancellation signals for reads.
 
 ```dotenv
 # src/frontend/.env
-VITE_BACKEND_URL=http://localhost
+VITE_GATEWAY_URL=http://localhost
 ```
 
 Use Caddy's browser-accessible HTTP(S) origin, including `SERVICE_CADDY_PORT` if it
-is not the default port. Do not include `/web`, credentials, a query, or a fragment:
-the shared client appends `/web`. Missing or invalid values cause a configuration
+is not the default port. Do not include `/pim/web`, credentials, a query, or a fragment:
+the shared client appends `/pim/web`. Missing or invalid values cause a configuration
 error when the client initializes. Docker service names and container-only host
 addresses are not appropriate for this browser setting.
 
-Start Caddy, backend, and frontend with their Compose profiles, then start Vite:
+Start Caddy, gateway, PIM, and frontend with their Compose profiles, then start Vite:
 
 ```sh
-docker compose --profile caddy --profile backend --profile frontend up -d
+docker compose --profile caddy --profile gateway --profile pim --profile frontend up -d
 docker compose exec frontend npm run dev -- --host 0.0.0.0
 ```
 
-Open `http://localhost:5173`. Requests go to `http://localhost/web`, so the backend
+Open `http://localhost:5173`. Requests go to `http://localhost/pim/web`, so gateway
 must allow the frontend origin through CORS. `NelmioCorsBundle` handles preflight
-and response headers for `/web` only. In dev and test, the default origins are
+and response headers for all four service prefixes. In dev and test, the default origins are
 `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173`, and
 `http://127.0.0.1:4173`. Configure the `CORS_ALLOW_ORIGIN` regular expression in
-the backend environment when changing frontend ports or domains. Anchor it with
+the gateway environment when changing frontend ports or domains. Anchor it with
 `^` and `$` and escape dots in domain names, for example:
 
 ```dotenv
 CORS_ALLOW_ORIGIN='^https://(app|admin)\.example\.com$'
 ```
 
-The base backend value `(?!)` matches no origins. Restart backend workers after
+The base gateway value `(?!)` matches no origins. Restart gateway workers after
 changing the value. Cookie credentials are not enabled. CORS configuration lives
-in `src/backend/config/packages/nelmio_cors.yaml`.
+in `src/gateway/config/packages/nelmio_cors.yaml`.
 
-`VITE_BACKEND_URL` is public and embedded in the browser bundle at build time.
+`VITE_GATEWAY_URL` is public and embedded in the browser bundle at build time.
 Restart Vite after editing the frontend env; rebuild for a different production
 API origin. Production must set its public Caddy origin before building and its
-allowed frontend origins in the backend environment. The base backend environment
+allowed frontend origins in the gateway environment. The base gateway environment
 allows no cross-origin clients. Caddy still needs an `index.html` fallback when
 serving the production frontend.
 
@@ -89,5 +90,5 @@ only. `npm run check` verifies both conventions without modifying files.
 Tests are colocated with the source they cover. Vitest covers API contracts,
 validation, query cancellation, and cache consistency. Playwright intercepts API
 requests to exercise CRUD and error states without a running backend or changing
-development data. CI supplies `VITE_BACKEND_URL=http://api.pimelo.test` explicitly;
+development data. CI supplies `VITE_GATEWAY_URL=http://api.pimelo.test` explicitly;
 local checks use your frontend `.env`. API requests remain intercepted in both cases.

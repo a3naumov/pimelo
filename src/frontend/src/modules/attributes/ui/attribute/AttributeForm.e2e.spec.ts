@@ -7,7 +7,7 @@ test.describe('Attribute form changes', () => {
     page,
   }) => {
     const writes: string[] = [];
-    await page.route(`**/web/attributes/${id}{,?*}`, (route) => {
+    await page.route(`**/pim/web/attributes/${id}{,?*}`, (route) => {
       if (route.request().method() === 'PATCH') {
         writes.push(route.request().method());
       }
@@ -53,7 +53,7 @@ test.describe('Attribute form changes', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route(`**/web/attributes/${id}{,?*}`, async (route) => {
+    await page.route(`**/pim/web/attributes/${id}{,?*}`, async (route) => {
       if (route.request().method() === 'PATCH') {
         writes++;
         await gate;
@@ -85,7 +85,7 @@ test.describe('Attribute form changes', () => {
 test.describe('Attribute form validation', () => {
   test('rejects blank and oversized names before submitting', async ({ page }) => {
     const requests: string[] = [];
-    await page.route('**/web/attributes/', (route) => {
+    await page.route('**/pim/web/attributes/', (route) => {
       requests.push(route.request().method());
 
       return route.abort();
@@ -107,7 +107,7 @@ test.describe('Attribute form validation', () => {
 
   for (const { status, message } of failures) {
     test(`preserves input after a ${status || 'network'} failure`, async ({ page }) => {
-      await page.route('**/web/attributes/', (route) =>
+      await page.route('**/pim/web/attributes/', (route) =>
         status === 0
           ? route.abort()
           : route.fulfill({

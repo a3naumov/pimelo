@@ -32,7 +32,7 @@ jobs:
             --workdir /app \
             --env HOME=/tmp \
             --env NPM_CONFIG_CACHE=/tmp/npm-cache \
-            --env VITE_BACKEND_URL=http://api.pimelo.test \
+            --env VITE_GATEWAY_URL=http://api.pimelo.test \
             pimelo-frontend-ci sh -ec '
               npm ci --no-audit --no-fund
               npm run check

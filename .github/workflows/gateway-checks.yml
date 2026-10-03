@@ -1,0 +1,42 @@
+name: Gateway checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gateway-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build gateway image
+        run: |
+          docker build --target dev --tag pimelo-php-roadrunner-ci docker/php-roadrunner
+          docker build --target dev --tag pimelo-gateway-ci \
+            --build-context php_roadrunner=docker-image://pimelo-php-roadrunner-ci \
+            docker/gateway
+
+      - name: Install dependencies and run gateway checks
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --volume "$GITHUB_WORKSPACE/src/gateway:/app" \
+            --workdir /app \
+            --env APP_ENV=test \
+            --env APP_DEBUG=1 \
+            --env XDEBUG_MODE=off \
+            --env COMPOSER_HOME=/tmp/composer \
+            pimelo-gateway-ci sh -ec '
+              composer install --no-interaction --prefer-dist --no-progress
+              composer check
+            '

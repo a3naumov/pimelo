@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-function getBackendOrigin(value: string | undefined): string {
+function getGatewayOrigin(value: string | undefined): string {
   const message =
-    'VITE_BACKEND_URL must be an HTTP(S) origin without credentials, a path, query, or fragment.';
+    'VITE_GATEWAY_URL must be an HTTP(S) origin without credentials, a path, query, or fragment.';
 
   if (!value || !URL.canParse(value)) {
     throw new Error(message);
@@ -25,7 +25,7 @@ function getBackendOrigin(value: string | undefined): string {
 }
 
 export const apiClient = axios.create({
-  baseURL: `${getBackendOrigin(import.meta.env.VITE_BACKEND_URL)}/web`,
+  baseURL: `${getGatewayOrigin(import.meta.env.VITE_GATEWAY_URL)}/pim/web`,
   timeout: 15000,
   headers: { Accept: 'application/json' },
 });

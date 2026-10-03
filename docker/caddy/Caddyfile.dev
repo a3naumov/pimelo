@@ -3,9 +3,13 @@
 }
 
 :80 {
-	@web path /web /web/*
-	handle @web {
-		reverse_proxy backend:8080
+	@services path /pim /pim/* /search /search/* /media-storage /media-storage/* /notifications /notifications/* /web /web/*
+	handle @services {
+		reverse_proxy gateway:8080 {
+			header_up -Forwarded
+			header_up -X-Forwarded-Prefix
+			header_up -X-Forwarded-Port
+		}
 	}
 
 	handle {
