@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../../test/browser';
 
 test.describe('SidebarProvider fixed desktop state', () => {
   test.use({ viewport: { width: 1440, height: 960 } });

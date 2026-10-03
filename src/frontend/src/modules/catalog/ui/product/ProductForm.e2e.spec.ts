@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../../../../shared/test/browser';
 
 test.describe('Product form changes', () => {
   const id = '0195f582-9762-7c2a-9228-4060489e06d8';

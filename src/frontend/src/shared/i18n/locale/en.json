@@ -33,6 +33,18 @@
     }
   },
   "app": {
+    "availability": {
+      "warning": "Some services are unavailable",
+      "connectionProblem": "Connection to the gateway is interrupted or recovering. We are checking automatically.",
+      "serviceProblem": "Unavailable or recovering: {services}. Affected pages will return automatically when the connection is stable.",
+      "unavailable": "Unavailable",
+      "unavailableTitle": "This page is temporarily unavailable",
+      "unavailableDescription": "A required service is unavailable or recovering. We will restore this page after two successful checks. Your unsaved changes are kept while you stay on this page.",
+      "checking": "Checking service availability",
+      "checkingDescription": "Please wait while we check the services required by this page.",
+      "goHome": "Go to home page",
+      "checkAgain": "Check again"
+    },
     "home": "Pimelo home",
     "description": "Product workspace",
     "closeNavigation": "Close navigation",

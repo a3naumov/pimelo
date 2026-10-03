@@ -4,6 +4,9 @@ import type { HTMLAttributes } from 'vue';
 import { reactiveOmit } from '@vueuse/core';
 import { TooltipArrow, TooltipContent, TooltipPortal, useForwardPropsEmits } from 'reka-ui';
 import { cn } from '@/shared/lib/utils';
+import { usePageInteraction } from '@/shared/composable/usePageInteraction';
+
+const pageInteractive = usePageInteraction();
 
 defineOptions({
   inheritAttrs: false,
@@ -23,7 +26,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits);
 </script>
 
 <template>
-  <TooltipPortal>
+  <TooltipPortal v-if="pageInteractive">
     <TooltipContent
       data-slot="tooltip-content"
       v-bind="{ ...forwarded, ...$attrs }"

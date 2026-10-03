@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { useTranslation } from '@/shared/i18n';
 import { watch } from 'vue';
-import { ArrowUpRightIcon, BookOpenIcon, SproutIcon, StoreIcon, XIcon } from '@lucide/vue';
-import { RouterLink, useRoute } from 'vue-router';
+import {
+  ArrowUpRightIcon,
+  BookOpenIcon,
+  SproutIcon,
+  StoreIcon,
+  XIcon,
+  WifiOffIcon,
+} from '@lucide/vue';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
+import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import {
   Sidebar,
@@ -19,9 +27,19 @@ import {
 import { navigationGroups } from '../navigation';
 
 const { t } = useTranslation();
+const props = withDefaults(defineProps<{ unavailableServices?: readonly string[] }>(), {
+  unavailableServices: () => [],
+});
 const route = useRoute();
+const router = useRouter();
 const { isMobile, setOpenMobile } = useSidebar();
 const navigationItems = navigationGroups.flatMap((group) => [...group.items]);
+
+function isUnavailable(name: string): boolean {
+  return (router.resolve({ name }).meta.requiredServices ?? []).some((service) =>
+    props.unavailableServices.includes(service),
+  );
+}
 
 watch(
   () => route.fullPath,
@@ -78,6 +96,9 @@ watch(
                   <RouterLink
                     :to="{ name: item.name }"
                     :aria-label="t(item.titleKey)"
+                    :aria-describedby="
+                      isUnavailable(item.name) ? `unavailable-${item.name}` : undefined
+                    "
                     :aria-current="
                       (route.meta.navigationItem ?? route.name) === item.name ? 'page' : undefined
                     "
@@ -85,6 +106,16 @@ watch(
                   >
                     <component :is="item.icon" aria-hidden="true" />
                     <span>{{ t(item.titleKey) }}</span>
+                    <Badge
+                      v-if="isUnavailable(item.name)"
+                      :id="`unavailable-${item.name}`"
+                      :title="t('app.availability.unavailable')"
+                      variant="outline"
+                      class="ml-auto"
+                    >
+                      <WifiOffIcon aria-hidden="true" />
+                      <span class="sr-only">{{ t('app.availability.unavailable') }}</span>
+                    </Badge>
                   </RouterLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

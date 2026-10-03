@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../../../../shared/test/browser';
 
 test.describe('Creating a product', () => {
   test('normalizes the SKU, blocks duplicate submission, and refreshes the list', async ({

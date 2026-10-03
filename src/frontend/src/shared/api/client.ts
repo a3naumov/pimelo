@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-function getGatewayOrigin(value: string | undefined): string {
+export function getGatewayOrigin(value: string | undefined): string {
   const message =
     'VITE_GATEWAY_URL must be an HTTP(S) origin without credentials, a path, query, or fragment.';
 

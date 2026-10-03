@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from '../../../../shared/test/browser';
 import { categoryInputSchema } from '../../model/category/schemas';
 const root = { id: '0195f582-9762-7c2a-9228-4060489e0601', parent_id: null as string | null };
 const child = { id: '0195f582-9762-7c2a-9228-4060489e0602', parent_id: root.id };

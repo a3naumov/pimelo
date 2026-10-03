@@ -56,6 +56,43 @@ allowed frontend origins in the gateway environment. The base gateway environmen
 allows no cross-origin clients. Caddy still needs an `index.html` fallback when
 serving the production frontend.
 
+## Service availability
+
+The application polls `${VITE_GATEWAY_URL}/healthcheck` once at startup, every
+15 seconds while healthy, and every 5 seconds during an outage/recovery. Requests
+time out after 5 seconds without automatic retries. Focus, returning to a visible
+tab, and reconnecting trigger an immediate check; background polling is paused.
+Concurrent automatic/manual checks share the same request.
+
+Nothing is displayed while services are healthy. A failed dependency or gateway
+connection shows a status bar and marks affected navigation links `Unavailable`.
+The links still work, but open an explanation screen rather than the business UI.
+The home page remains available, including when gateway cannot be reached.
+
+Product, category and attribute routes declare `requiredServices: ['pim']` in
+route metadata. This applies to lists, creation/editing, direct URLs, reloads and
+browser history. On a cold protected route, no page or PIM request starts until
+the first successful healthcheck. Missing required services fail closed.
+
+One failed check blocks access immediately. Two consecutive successful checks
+restore it automatically; another failure resets that counter. HTTP 503 with a
+valid health report is a dependency outage, not a lost gateway connection. Neither
+health reports nor access permission are persisted across page reloads.
+
+If a service fails during editing, the current page is retained but hidden and
+inert. Page-owned dialogs, sheets, menus and tooltips are removed using a shared
+interaction context, while application navigation stays usable. New PIM requests
+are blocked and reads are cancelled; writes already sent are never retried
+automatically. Recovery refreshes active reads without resetting form drafts.
+Unsaved input survives only while staying on the same URL: leaving or reloading
+discards it. The outage screen offers home navigation and a manual check, which
+does not bypass the two-success recovery rule.
+
+Monitoring composables use TanStack Query in `shared/composable`, with pure availability
+state transitions in `shared/model`, gateway HTTP contracts in `shared/api`, and
+application-level integration in `app/composable`. Browser tests share an
+automatic healthy-gateway fixture, with explicit overrides for outage scenarios.
+
 ## Run all checks
 
 ```sh

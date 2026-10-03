@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../../../../shared/test/browser';
 
 test.describe('Creating an attribute', () => {
   test('normalizes the name, blocks duplicate submission, and refreshes the list', async ({

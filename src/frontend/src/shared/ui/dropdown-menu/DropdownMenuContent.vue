@@ -4,6 +4,9 @@ import type { HTMLAttributes } from 'vue';
 import { reactiveOmit } from '@vueuse/core';
 import { DropdownMenuContent, DropdownMenuPortal, useForwardPropsEmits } from 'reka-ui';
 import { cn } from '@/shared/lib/utils';
+import { usePageInteraction } from '@/shared/composable/usePageInteraction';
+
+const pageInteractive = usePageInteraction();
 
 defineOptions({
   inheritAttrs: false,
@@ -24,7 +27,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits);
 </script>
 
 <template>
-  <DropdownMenuPortal>
+  <DropdownMenuPortal v-if="pageInteractive">
     <DropdownMenuContent
       data-slot="dropdown-menu-content"
       v-bind="{ ...$attrs, ...forwarded }"

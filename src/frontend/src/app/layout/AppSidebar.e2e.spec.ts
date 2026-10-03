@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../../shared/test/browser';
 
 test.describe('AppSidebar desktop navigation', () => {
   test.use({ viewport: { width: 1440, height: 960 } });

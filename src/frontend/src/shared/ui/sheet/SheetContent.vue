@@ -9,6 +9,9 @@ import { DialogClose, DialogContent, DialogPortal, useForwardPropsEmits } from '
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 import SheetOverlay from './SheetOverlay.vue';
+import { usePageInteraction } from '@/shared/composable/usePageInteraction';
+
+const pageInteractive = usePageInteraction();
 
 const { t } = useTranslation();
 
@@ -34,7 +37,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits);
 </script>
 
 <template>
-  <DialogPortal>
+  <DialogPortal v-if="pageInteractive">
     <SheetOverlay />
     <DialogContent
       data-slot="sheet-content"

@@ -3,7 +3,7 @@
 }
 
 :80 {
-	@services path /pim /pim/* /search /search/* /media-storage /media-storage/* /notifications /notifications/* /web /web/*
+	@services path /healthcheck /pim /pim/* /search /search/* /media-storage /media-storage/* /notifications /notifications/* /web /web/*
 	handle @services {
 		reverse_proxy gateway:8080 {
 			header_up -Forwarded

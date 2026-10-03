@@ -7,6 +7,7 @@ import { routes } from './router';
 import { VueQueryPlugin } from '@tanstack/vue-query';
 import { createQueryClient } from './queryClient';
 import { apiClient } from '@/shared/api/client';
+import { gatewayClient } from '@/shared/api/healthcheck';
 
 enableAutoUnmount(afterEach);
 afterEach(() => vi.restoreAllMocks());
@@ -14,6 +15,14 @@ afterEach(() => vi.restoreAllMocks());
 describe('App layout composition', () => {
   it('renders routed pages inside the same layout across navigation', async () => {
     vi.spyOn(apiClient, 'get').mockResolvedValue({ data: { products: [] } });
+    vi.spyOn(gatewayClient, 'get').mockResolvedValue({
+      status: 200,
+      data: {
+        service: 'gateway',
+        status: 'ok',
+        services: { pim: { status: 'ok' } },
+      },
+    });
     const queryClient = createQueryClient();
     const router = createRouter({ history: createMemoryHistory(), routes });
     await router.push('/categories');
@@ -24,7 +33,7 @@ describe('App layout composition', () => {
     const navigation = wrapper.get('nav[aria-label="Main navigation"]').element;
     const main = wrapper.get('main').element;
 
-    expect(wrapper.get('main h1').text()).toBe('Categories');
+    await vi.waitFor(() => expect(wrapper.get('main h1').text()).toBe('Categories'));
 
     await router.push('/products');
     await vi.waitFor(() => {
