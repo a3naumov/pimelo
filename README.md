@@ -1,5 +1,11 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="src/frontend/public/brand/pimelo-horizontal-white.svg">
+  <img src="src/frontend/public/brand/pimelo-horizontal.svg" alt="Pimelo" width="320">
+</picture>
+
 # pimelo
-[pimelo](https://github.com/a3naumov/pimelo)
+
+A clear home for your product information.
 
 ## Quick start
 
@@ -120,6 +126,12 @@ Compose files/profiles), rename the frontend env key, and install Composer
 dependencies in `src/pim` and `src/gateway`. After starting PIM, remove the obsolete
 container with `docker rm -f pimelo-backend` (adjust the project prefix if needed).
 Do not remove volumes: `postgres_data` and `kafka_data` retain their previous names.
+
+## Brand assets
+
+The [SVG logo](src/frontend/public/brand/pimelo-horizontal.svg) is available for reuse.
+For GitHub, use the [square logo](.github/assets/pimelo-github-icon.png)
+or the [repository social preview](.github/assets/pimelo-github-social-preview.png).
 
 ## License
 

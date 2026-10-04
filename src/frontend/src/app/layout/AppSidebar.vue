@@ -1,14 +1,7 @@
 <script setup lang="ts">
 import { useTranslation } from '@/shared/i18n';
 import { watch } from 'vue';
-import {
-  ArrowUpRightIcon,
-  BookOpenIcon,
-  SproutIcon,
-  StoreIcon,
-  XIcon,
-  WifiOffIcon,
-} from '@lucide/vue';
+import { ArrowUpRightIcon, BookOpenIcon, StoreIcon, XIcon, WifiOffIcon } from '@lucide/vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
@@ -25,6 +18,7 @@ import {
   useSidebar,
 } from '@/shared/ui/sidebar';
 import { navigationGroups } from '../navigation';
+import PimeloLogo from './PimeloLogo.vue';
 
 const { t } = useTranslation();
 const props = withDefaults(defineProps<{ unavailableServices?: readonly string[] }>(), {
@@ -57,8 +51,8 @@ watch(
           class="brand-link"
           @click="setOpenMobile(false)"
         >
-          <SproutIcon aria-hidden="true" />
-          <span class="brand-name">pimelo</span>
+          <PimeloLogo class="brand-logo" />
+          <span class="brand-name sr-only">pimelo</span>
         </RouterLink>
         <Button
           v-if="isMobile"
@@ -153,24 +147,16 @@ watch(
 .brand-link {
   display: flex;
   align-items: center;
-  gap: 8px;
   min-width: 0;
   height: 35px;
   padding-inline: 14px;
   color: var(--brand);
-  font-size: 29px;
-  font-weight: 700;
-  line-height: 35px;
 }
-.brand-name {
-  overflow: hidden;
-  white-space: nowrap;
-}
-.brand-link > svg {
-  width: 27px;
-  height: 27px;
+.brand-logo {
+  width: 156px;
+  height: auto;
+  max-width: 100%;
   flex-shrink: 0;
-  color: var(--sidebar-primary);
 }
 .workspace-label {
   display: flex;

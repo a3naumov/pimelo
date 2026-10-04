@@ -7,7 +7,15 @@ test.describe('AppSidebar desktop navigation', () => {
     await page.goto('/');
     await expect(page.locator('[data-sidebar="trigger"]')).toHaveCount(0);
     await expect(page.locator('[data-sidebar="rail"]')).toHaveCount(0);
-    await expect(page.locator('.brand-name')).toBeVisible();
+    const logo = page.locator('.brand-logo');
+    await expect(logo).toBeVisible();
+    await expect
+      .poll(() =>
+        logo.evaluate(
+          (element) => element instanceof SVGGraphicsElement && element.getBBox().width > 0,
+        ),
+      )
+      .toBe(true);
     await expect(page.getByText('Pimelo workspace', { exact: true })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
   });
